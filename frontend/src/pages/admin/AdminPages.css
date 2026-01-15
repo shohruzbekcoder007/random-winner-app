@@ -346,6 +346,14 @@
   background: #ffebee;
 }
 
+.result-item.info {
+  background: #e3f2fd;
+}
+
+.result-item.info .result-value {
+  color: #1565c0;
+}
+
 .result-value {
   display: block;
   font-size: 32px;
@@ -415,6 +423,78 @@
 
 .instructions-card li {
   margin-bottom: 8px;
+}
+
+/* Mode Selector */
+.mode-selector {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.mode-btn {
+  padding: 12px 24px;
+  border: 2px solid var(--gray-200);
+  background: white;
+  border-radius: var(--radius-lg);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gray-600);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mode-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.mode-btn.active {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: white;
+}
+
+/* Tuman Stats */
+.tuman-stats {
+  margin-top: 24px;
+  padding: 16px;
+  background: #f5f5f5;
+  border-radius: var(--radius);
+}
+
+.tuman-stats h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin-bottom: 12px;
+}
+
+.tuman-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.tuman-stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: white;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+}
+
+.tuman-name {
+  color: var(--gray-700);
+  font-weight: 500;
+}
+
+.tuman-count {
+  color: var(--primary);
+  font-weight: 600;
 }
 
 /* Responsive */

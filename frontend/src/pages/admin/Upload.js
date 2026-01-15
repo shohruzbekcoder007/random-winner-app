@@ -3,6 +3,7 @@ import api from '../../services/api';
 import './AdminPages.css';
 
 const Upload = () => {
+  const [uploadMode, setUploadMode] = useState('tuman'); // 'tuman' yoki 'viloyat'
   const [viloyatlar, setViloyatlar] = useState([]);
   const [tumanlar, setTumanlar] = useState([]);
   const [selectedViloyat, setSelectedViloyat] = useState('');
@@ -17,13 +18,13 @@ const Upload = () => {
   }, []);
 
   useEffect(() => {
-    if (selectedViloyat) {
+    if (selectedViloyat && uploadMode === 'tuman') {
       fetchTumanlar(selectedViloyat);
     } else {
       setTumanlar([]);
       setSelectedTuman('');
     }
-  }, [selectedViloyat]);
+  }, [selectedViloyat, uploadMode]);
 
   const fetchViloyatlar = async () => {
     try {
@@ -43,6 +44,16 @@ const Upload = () => {
     } catch (error) {
       console.error('Tumanlarni olishda xato:', error);
     }
+  };
+
+  const handleModeChange = (mode) => {
+    setUploadMode(mode);
+    setSelectedViloyat('');
+    setSelectedTuman('');
+    setFile(null);
+    setResult(null);
+    const fileInput = document.getElementById('file-input');
+    if (fileInput) fileInput.value = '';
   };
 
   const handleFileChange = (e) => {
@@ -67,7 +78,7 @@ const Upload = () => {
       return;
     }
 
-    if (!selectedTuman) {
+    if (uploadMode === 'tuman' && !selectedTuman) {
       alert('Tumanni tanlang');
       return;
     }
@@ -82,14 +93,20 @@ const Upload = () => {
 
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('tumanId', selectedTuman);
 
     try {
-      const response = await api.post('/upload/excel', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
+      let response;
+      if (uploadMode === 'tuman') {
+        formData.append('tumanId', selectedTuman);
+        response = await api.post('/upload/excel', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      } else {
+        formData.append('viloyatId', selectedViloyat);
+        response = await api.post('/upload/excel-by-viloyat', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      }
 
       setResult(response.data.data);
       setFile(null);
@@ -103,14 +120,17 @@ const Upload = () => {
 
   const handleDownloadTemplate = async () => {
     try {
-      const response = await api.get('/upload/template', {
+      const endpoint = uploadMode === 'tuman' ? '/upload/template' : '/upload/template-by-viloyat';
+      const filename = uploadMode === 'tuman' ? 'ishtirokchilar_namuna.xlsx' : 'ishtirokchilar_viloyat_namuna.xlsx';
+
+      const response = await api.get(endpoint, {
         responseType: 'blob'
       });
 
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', 'ishtirokchilar_namuna.xlsx');
+      link.setAttribute('download', filename);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -148,10 +168,37 @@ const Upload = () => {
           <div className="card upload-card">
             <div className="upload-icon">📊</div>
             <h2>Ishtirokchilarni Excel fayldan yuklash</h2>
+
+            {/* Yuklash rejimi tanlash */}
+            <div className="mode-selector">
+              <button
+                className={`mode-btn ${uploadMode === 'tuman' ? 'active' : ''}`}
+                onClick={() => handleModeChange('tuman')}
+              >
+                📍 Tuman bo'yicha
+              </button>
+              <button
+                className={`mode-btn ${uploadMode === 'viloyat' ? 'active' : ''}`}
+                onClick={() => handleModeChange('viloyat')}
+              >
+                🏛️ Viloyat bo'yicha (SOATO)
+              </button>
+            </div>
+
             <p className="upload-description">
-              Avval viloyat va tumanni tanlang, keyin Excel faylni yuklang.
-              <br />
-              Barcha ishtirokchilar tanlangan tumanga qo'shiladi.
+              {uploadMode === 'tuman' ? (
+                <>
+                  Avval viloyat va tumanni tanlang, keyin Excel faylni yuklang.
+                  <br />
+                  Barcha ishtirokchilar tanlangan tumanga qo'shiladi.
+                </>
+              ) : (
+                <>
+                  Viloyatni tanlang va SOATO kodli Excel faylni yuklang.
+                  <br />
+                  Har bir ishtirokchi SOATO kodi bo'yicha o'z tumaniga qo'shiladi.
+                </>
+              )}
             </p>
 
             {/* Viloyat va Tuman tanlash */}
@@ -170,39 +217,44 @@ const Upload = () => {
                   <option value="">-- Viloyatni tanlang --</option>
                   {viloyatlar.map((v) => (
                     <option key={v._id} value={v._id}>
-                      {v.nomi} ({v.tumanlarSoni} ta tuman)
+                      {v.soato} - {v.nomi} ({v.tumanlarSoni} ta tuman)
                     </option>
                   ))}
                 </select>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Tuman tanlang *</label>
-                <select
-                  value={selectedTuman}
-                  onChange={(e) => {
-                    setSelectedTuman(e.target.value);
-                    setResult(null);
-                  }}
-                  className="form-input"
-                  disabled={!selectedViloyat}
-                >
-                  <option value="">-- Tumanni tanlang --</option>
-                  {tumanlar.map((t) => (
-                    <option key={t._id} value={t._id}>
-                      {t.nomi} ({t.ishtirokchilarSoni || 0} ta ishtirokchi)
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {uploadMode === 'tuman' && (
+                <div className="form-group">
+                  <label className="form-label">Tuman tanlang *</label>
+                  <select
+                    value={selectedTuman}
+                    onChange={(e) => {
+                      setSelectedTuman(e.target.value);
+                      setResult(null);
+                    }}
+                    className="form-input"
+                    disabled={!selectedViloyat}
+                  >
+                    <option value="">-- Tumanni tanlang --</option>
+                    {tumanlar.map((t) => (
+                      <option key={t._id} value={t._id}>
+                        {t.soato} - {t.nomi} ({t.ishtirokchilarSoni || 0} ta ishtirokchi)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             {/* Tanlangan joy ko'rsatish */}
-            {selectedTuman && (
+            {((uploadMode === 'tuman' && selectedTuman) || (uploadMode === 'viloyat' && selectedViloyat)) && (
               <div className="selected-location">
                 <span className="location-icon">📍</span>
                 <span className="location-text">
-                  {getSelectedTumanName()}, {getSelectedViloyatName()}
+                  {uploadMode === 'tuman'
+                    ? `${getSelectedTumanName()}, ${getSelectedViloyatName()}`
+                    : `${getSelectedViloyatName()} (barcha tumanlar)`
+                  }
                 </span>
               </div>
             )}
@@ -231,7 +283,7 @@ const Upload = () => {
 
               <button
                 onClick={handleUpload}
-                disabled={!file || !selectedTuman || uploading}
+                disabled={!file || !selectedViloyat || (uploadMode === 'tuman' && !selectedTuman) || uploading}
                 className="btn btn-primary upload-btn"
               >
                 {uploading ? (
@@ -251,7 +303,7 @@ const Upload = () => {
             <div className="card result-card">
               <h3>Yuklash natijasi</h3>
               <div className="result-location">
-                📍 {result.tuman}, {result.viloyat}
+                📍 {uploadMode === 'tuman' ? `${result.tuman}, ${result.viloyat}` : result.viloyat}
               </div>
               <div className="result-grid">
                 <div className="result-item">
@@ -266,11 +318,32 @@ const Upload = () => {
                   <span className="result-value">{result.skipped}</span>
                   <span className="result-label">O'tkazib yuborilgan</span>
                 </div>
+                {uploadMode === 'viloyat' && (
+                  <div className="result-item info">
+                    <span className="result-value">{result.tumanNotFound || 0}</span>
+                    <span className="result-label">Tuman topilmadi</span>
+                  </div>
+                )}
                 <div className="result-item error">
                   <span className="result-value">{result.errors?.length || 0}</span>
                   <span className="result-label">Xatolar</span>
                 </div>
               </div>
+
+              {/* Viloyat bo'yicha tuman statistikasi */}
+              {uploadMode === 'viloyat' && result.tumanStats && Object.keys(result.tumanStats).length > 0 && (
+                <div className="tuman-stats">
+                  <h4>Tumanlar bo'yicha:</h4>
+                  <div className="tuman-stats-grid">
+                    {Object.entries(result.tumanStats).map(([tuman, count]) => (
+                      <div key={tuman} className="tuman-stat-item">
+                        <span className="tuman-name">{tuman}</span>
+                        <span className="tuman-count">{count} ta</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {result.errors && result.errors.length > 0 && (
                 <div className="errors-list">
@@ -278,7 +351,7 @@ const Upload = () => {
                   <ul>
                     {result.errors.slice(0, 10).map((err, i) => (
                       <li key={i}>
-                        Qator {err.row}: {err.fio} - {err.error}
+                        Qator {err.row}: {err.soato ? `[${err.soato}] ` : ''}{err.fio} - {err.error}
                       </li>
                     ))}
                     {result.errors.length > 10 && (
@@ -293,19 +366,36 @@ const Upload = () => {
           {/* Qo'llanma */}
           <div className="card instructions-card">
             <h3>📋 Qo'llanma</h3>
-            <ol>
-              <li><strong>Viloyat</strong> va <strong>Tuman</strong>ni tanlang</li>
-              <li>Namuna faylni yuklab oling (ixtiyoriy)</li>
-              <li>Excel faylga ishtirokchilar ma'lumotlarini kiriting:
-                <ul>
-                  <li><strong>FIO</strong> - majburiy (1-ustun)</li>
-                  <li><strong>Telefon</strong> - ixtiyoriy (2-ustun)</li>
-                </ul>
-              </li>
-              <li>Birinchi qator sarlavha bo'lishi mumkin (avtomatik aniqlanadi)</li>
-              <li>Takroriy ishtirokchilar o'tkazib yuboriladi</li>
-              <li>Barcha ishtirokchilar tanlangan tumanga qo'shiladi</li>
-            </ol>
+            {uploadMode === 'tuman' ? (
+              <ol>
+                <li><strong>Viloyat</strong> va <strong>Tuman</strong>ni tanlang</li>
+                <li>Namuna faylni yuklab oling (ixtiyoriy)</li>
+                <li>Excel faylga ishtirokchilar ma'lumotlarini kiriting:
+                  <ul>
+                    <li><strong>FIO</strong> - majburiy (1-ustun)</li>
+                    <li><strong>Telefon</strong> - ixtiyoriy (2-ustun)</li>
+                  </ul>
+                </li>
+                <li>Birinchi qator sarlavha bo'lishi mumkin (avtomatik aniqlanadi)</li>
+                <li>Takroriy ishtirokchilar o'tkazib yuboriladi</li>
+                <li>Barcha ishtirokchilar tanlangan tumanga qo'shiladi</li>
+              </ol>
+            ) : (
+              <ol>
+                <li><strong>Viloyat</strong>ni tanlang</li>
+                <li>Namuna faylni yuklab oling (ixtiyoriy)</li>
+                <li>Excel faylga ishtirokchilar ma'lumotlarini kiriting:
+                  <ul>
+                    <li><strong>SOATO</strong> - majburiy, 7 raqamli tuman kodi (1-ustun)</li>
+                    <li><strong>FIO</strong> - majburiy (2-ustun)</li>
+                    <li><strong>Telefon</strong> - ixtiyoriy (3-ustun)</li>
+                  </ul>
+                </li>
+                <li>Birinchi qator sarlavha bo'lishi mumkin (avtomatik aniqlanadi)</li>
+                <li>Har bir ishtirokchi SOATO kodi bo'yicha o'z tumaniga qo'shiladi</li>
+                <li>Noto'g'ri SOATO kodli qatorlar o'tkazib yuboriladi</li>
+              </ol>
+            )}
           </div>
         </div>
       </div>
