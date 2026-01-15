@@ -163,7 +163,7 @@ const getStats = async (req, res) => {
     const tumanStats = await Golib.aggregate([
       {
         $lookup: {
-          from: 'tumans',
+          from: 'tumen',
           localField: 'tuman',
           foreignField: '_id',
           as: 'tumanInfo'

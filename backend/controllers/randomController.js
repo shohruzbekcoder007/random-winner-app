@@ -30,7 +30,7 @@ const selectRandomWinner = async (req, res) => {
       { $match: ishtirokchiMatch },
       {
         $lookup: {
-          from: 'tumans',
+          from: 'tumen',
           localField: 'tuman',
           foreignField: '_id',
           as: 'tumanInfo'
@@ -86,7 +86,7 @@ const selectRandomWinner = async (req, res) => {
       { $match: ishtirokchiMatch },
       {
         $lookup: {
-          from: 'tumans',
+          from: 'tumen',
           localField: 'tuman',
           foreignField: '_id',
           as: 'tumanInfo'
@@ -238,7 +238,7 @@ const getSelectionStats = async (req, res) => {
       { $match: { isActive: true } },
       {
         $lookup: {
-          from: 'tumans',
+          from: 'tumen',
           let: { viloyatId: '$_id' },
           pipeline: [
             {
@@ -283,6 +283,90 @@ const getSelectionStats = async (req, res) => {
   }
 };
 
+// @desc    Debug - bazadagi ma'lumotlarni tekshirish
+// @route   GET /api/random/debug
+// @access  Private
+const debugStats = async (req, res) => {
+  try {
+    const mongoose = require('mongoose');
+
+    // Collection nomlarini olish
+    const collections = await mongoose.connection.db.listCollections().toArray();
+    const collectionNames = collections.map(c => c.name);
+
+    // Asosiy statistika
+    const [
+      totalIshtirokchilar,
+      faolIshtirokchilar,
+      totalTumanlar,
+      faolTumanlar,
+      totalViloyatlar,
+      faolViloyatlar,
+      totalGoliblar
+    ] = await Promise.all([
+      Ishtirokchi.countDocuments(),
+      Ishtirokchi.countDocuments({ isActive: true }),
+      Tuman.countDocuments(),
+      Tuman.countDocuments({ isActive: true }),
+      Viloyat.countDocuments(),
+      Viloyat.countDocuments({ isActive: true }),
+      Golib.countDocuments()
+    ]);
+
+    // Birinchi faol ishtirokchini tekshirish
+    const sampleIshtirokchi = await Ishtirokchi.findOne({ isActive: true }).populate({
+      path: 'tuman',
+      populate: { path: 'viloyat' }
+    });
+
+    // Aggregation natijasini tekshirish
+    const testAggregation = await Ishtirokchi.aggregate([
+      { $match: { isActive: true } },
+      { $limit: 1 },
+      {
+        $lookup: {
+          from: 'tumen',
+          localField: 'tuman',
+          foreignField: '_id',
+          as: 'tumanInfo'
+        }
+      }
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        collectionNames,
+        counts: {
+          ishtirokchilar: { total: totalIshtirokchilar, faol: faolIshtirokchilar },
+          tumanlar: { total: totalTumanlar, faol: faolTumanlar },
+          viloyatlar: { total: totalViloyatlar, faol: faolViloyatlar },
+          goliblar: totalGoliblar
+        },
+        sampleIshtirokchi: sampleIshtirokchi ? {
+          _id: sampleIshtirokchi._id,
+          fio: sampleIshtirokchi.fio,
+          isActive: sampleIshtirokchi.isActive,
+          tumanId: sampleIshtirokchi.tuman?._id,
+          tumanNomi: sampleIshtirokchi.tuman?.nomi,
+          tumanIsActive: sampleIshtirokchi.tuman?.isActive,
+          viloyatId: sampleIshtirokchi.tuman?.viloyat?._id,
+          viloyatNomi: sampleIshtirokchi.tuman?.viloyat?.nomi,
+          viloyatIsActive: sampleIshtirokchi.tuman?.viloyat?.isActive
+        } : null,
+        testAggregation: testAggregation[0] || null
+      }
+    });
+  } catch (error) {
+    console.error('Debug stats xatosi:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server xatosi',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Barcha g'oliblarni o'chirish (Golib jadvalini tozalash)
 // @route   POST /api/random/reset-all-winners
 // @access  Private/Admin
@@ -309,5 +393,6 @@ const resetAllWinners = async (req, res) => {
 module.exports = {
   selectRandomWinner,
   getSelectionStats,
-  resetAllWinners
+  resetAllWinners,
+  debugStats
 };
