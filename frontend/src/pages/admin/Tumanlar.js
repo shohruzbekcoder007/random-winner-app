@@ -1,0 +1,234 @@
+import React, { useState, useEffect } from 'react';
+import api from '../../services/api';
+import './AdminPages.css';
+
+const Tumanlar = () => {
+  const [tumanlar, setTumanlar] = useState([]);
+  const [viloyatlar, setViloyatlar] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [editingTuman, setEditingTuman] = useState(null);
+  const [formData, setFormData] = useState({ nomi: '', viloyat: '' });
+  const [filterViloyat, setFilterViloyat] = useState('');
+
+  useEffect(() => {
+    fetchData();
+  }, [filterViloyat]);
+
+  const fetchData = async () => {
+    try {
+      const [tumanlarRes, viloyatlarRes] = await Promise.all([
+        api.get(`/tuman${filterViloyat ? `?viloyat=${filterViloyat}` : ''}`),
+        api.get('/viloyat')
+      ]);
+      setTumanlar(tumanlarRes.data.data);
+      setViloyatlar(viloyatlarRes.data.data);
+    } catch (error) {
+      console.error('Ma\'lumot olishda xato:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingTuman) {
+        await api.put(`/tuman/${editingTuman._id}`, { nomi: formData.nomi });
+      } else {
+        await api.post('/tuman', formData);
+      }
+      setShowModal(false);
+      setEditingTuman(null);
+      setFormData({ nomi: '', viloyat: '' });
+      fetchData();
+    } catch (error) {
+      alert(error.response?.data?.message || 'Xato yuz berdi');
+    }
+  };
+
+  const handleEdit = (tuman) => {
+    setEditingTuman(tuman);
+    setFormData({
+      nomi: tuman.nomi,
+      viloyat: tuman.viloyat._id
+    });
+    setShowModal(true);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Bu tumanni o\'chirmoqchimisiz?')) return;
+    try {
+      await api.delete(`/tuman/${id}`);
+      fetchData();
+    } catch (error) {
+      alert(error.response?.data?.message || 'Xato yuz berdi');
+    }
+  };
+
+  const handleToggleActive = async (tuman) => {
+    try {
+      await api.patch(`/tuman/${tuman._id}/toggle-active`);
+      fetchData();
+    } catch (error) {
+      alert(error.response?.data?.message || 'Xato yuz berdi');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="loading-overlay">
+        <div className="spinner"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="admin-page">
+      <div className="container">
+        <div className="page-header">
+          <h1>Tumanlar</h1>
+          <button
+            onClick={() => {
+              setEditingTuman(null);
+              setFormData({ nomi: '', viloyat: viloyatlar[0]?._id || '' });
+              setShowModal(true);
+            }}
+            className="btn btn-primary"
+          >
+            + Yangi tuman
+          </button>
+        </div>
+
+        {/* Filter */}
+        <div className="filter-bar">
+          <select
+            value={filterViloyat}
+            onChange={(e) => setFilterViloyat(e.target.value)}
+            className="form-input filter-select"
+          >
+            <option value="">Barcha viloyatlar</option>
+            {viloyatlar.map((v) => (
+              <option key={v._id} value={v._id}>{v.nomi}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="card">
+          {tumanlar.length === 0 ? (
+            <div className="empty-state">
+              <span className="empty-icon">📍</span>
+              <p>Tumanlar topilmadi</p>
+            </div>
+          ) : (
+            <div className="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Nomi</th>
+                    <th>Viloyat</th>
+                    <th>Ishtirokchilar</th>
+                    <th>Faol</th>
+                    <th>Holati</th>
+                    <th>Amallar</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tumanlar.map((tuman, index) => (
+                    <tr key={tuman._id}>
+                      <td>{index + 1}</td>
+                      <td className="name-cell">{tuman.nomi}</td>
+                      <td>{tuman.viloyat?.nomi}</td>
+                      <td>{tuman.ishtirokchilarSoni}</td>
+                      <td>{tuman.faolIshtirokchilar}</td>
+                      <td>
+                        <span className={`badge ${tuman.isActive ? 'badge-success' : 'badge-error'}`}>
+                          {tuman.isActive ? 'Ishtirok etadi' : 'Ishtirok etmaydi'}
+                        </span>
+                      </td>
+                      <td className="actions-cell">
+                        <button
+                          onClick={() => handleToggleActive(tuman)}
+                          className="btn-icon"
+                          title={tuman.isActive ? 'Ishtirokdan chiqarish' : 'Ishtirok ettirish'}
+                        >
+                          {tuman.isActive ? '🔴' : '🟢'}
+                        </button>
+                        <button
+                          onClick={() => handleEdit(tuman)}
+                          className="btn-icon"
+                          title="Tahrirlash"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          onClick={() => handleDelete(tuman._id)}
+                          className="btn-icon"
+                          title="O'chirish"
+                        >
+                          🗑️
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Modal */}
+        {showModal && (
+          <div className="modal-overlay" onClick={() => setShowModal(false)}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2>{editingTuman ? 'Tumanni tahrirlash' : 'Yangi tuman'}</h2>
+                <button onClick={() => setShowModal(false)} className="modal-close">×</button>
+              </div>
+              <form onSubmit={handleSubmit}>
+                {!editingTuman && (
+                  <div className="form-group">
+                    <label className="form-label">Viloyat</label>
+                    <select
+                      className="form-input"
+                      value={formData.viloyat}
+                      onChange={(e) => setFormData({ ...formData, viloyat: e.target.value })}
+                      required
+                    >
+                      <option value="">Viloyat tanlang</option>
+                      {viloyatlar.map((v) => (
+                        <option key={v._id} value={v._id}>{v.nomi}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                <div className="form-group">
+                  <label className="form-label">Tuman nomi</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={formData.nomi}
+                    onChange={(e) => setFormData({ ...formData, nomi: e.target.value })}
+                    placeholder="Tuman nomini kiriting"
+                    required
+                  />
+                </div>
+                <div className="modal-actions">
+                  <button type="button" onClick={() => setShowModal(false)} className="btn btn-outline">
+                    Bekor qilish
+                  </button>
+                  <button type="submit" className="btn btn-primary">
+                    {editingTuman ? 'Saqlash' : 'Qo\'shish'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default Tumanlar;
