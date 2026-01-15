@@ -10,9 +10,11 @@ const Ishtirokchilar = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingIshtirokchi, setEditingIshtirokchi] = useState(null);
   const [formData, setFormData] = useState({ fio: '', tuman: '', telefon: '' });
+  const [modalViloyat, setModalViloyat] = useState('');
+  const [modalTumanlar, setModalTumanlar] = useState([]);
   const [filterViloyat, setFilterViloyat] = useState('');
   const [filterTuman, setFilterTuman] = useState('');
-  const [filterWinner, setFilterWinner] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -22,7 +24,7 @@ const Ishtirokchilar = () => {
 
   useEffect(() => {
     fetchIshtirokchilar();
-  }, [filterViloyat, filterTuman, filterWinner, page]);
+  }, [filterViloyat, filterTuman, filterStatus, page]);
 
   useEffect(() => {
     if (filterViloyat) {
@@ -51,13 +53,32 @@ const Ishtirokchilar = () => {
     }
   };
 
+  const fetchModalTumanlar = async (viloyatId) => {
+    try {
+      const response = await api.get(`/tuman?viloyat=${viloyatId}`);
+      setModalTumanlar(response.data.data);
+    } catch (error) {
+      console.error('Tumanlarni olishda xato:', error);
+    }
+  };
+
+  const handleModalViloyatChange = (viloyatId) => {
+    setModalViloyat(viloyatId);
+    setFormData({ ...formData, tuman: '' });
+    if (viloyatId) {
+      fetchModalTumanlar(viloyatId);
+    } else {
+      setModalTumanlar([]);
+    }
+  };
+
   const fetchIshtirokchilar = async () => {
     try {
       setLoading(true);
       let url = `/ishtirokchi?page=${page}&limit=50`;
       if (filterViloyat) url += `&viloyat=${filterViloyat}`;
       if (filterTuman) url += `&tuman=${filterTuman}`;
-      if (filterWinner) url += `&isWinner=${filterWinner}`;
+      if (filterStatus) url += `&isActive=${filterStatus}`;
 
       const response = await api.get(url);
       setIshtirokchilar(response.data.data);
@@ -109,10 +130,9 @@ const Ishtirokchilar = () => {
     }
   };
 
-  const handleResetWinner = async (id) => {
-    if (!window.confirm('G\'olib statusini bekor qilmoqchimisiz?')) return;
+  const handleToggleActive = async (id) => {
     try {
-      await api.patch(`/ishtirokchi/${id}/reset-winner`);
+      await api.patch(`/ishtirokchi/${id}/toggle-active`);
       fetchIshtirokchilar();
     } catch (error) {
       alert(error.response?.data?.message || 'Xato yuz berdi');
@@ -128,6 +148,8 @@ const Ishtirokchilar = () => {
             onClick={() => {
               setEditingIshtirokchi(null);
               setFormData({ fio: '', tuman: '', telefon: '' });
+              setModalViloyat('');
+              setModalTumanlar([]);
               setShowModal(true);
             }}
             className="btn btn-primary"
@@ -168,16 +190,16 @@ const Ishtirokchilar = () => {
           </select>
 
           <select
-            value={filterWinner}
+            value={filterStatus}
             onChange={(e) => {
-              setFilterWinner(e.target.value);
+              setFilterStatus(e.target.value);
               setPage(1);
             }}
             className="form-input filter-select"
           >
             <option value="">Barcha holatlar</option>
-            <option value="true">G'oliblar</option>
-            <option value="false">G'olib bo'lmaganlar</option>
+            <option value="true">Faol</option>
+            <option value="false">Nofaol</option>
           </select>
         </div>
 
@@ -209,28 +231,23 @@ const Ishtirokchilar = () => {
                   {ishtirokchilar.map((ish, index) => (
                     <tr key={ish._id}>
                       <td>{(page - 1) * 50 + index + 1}</td>
-                      <td className="name-cell">
-                        {ish.isWinner && <span className="winner-badge">🏆</span>}
-                        {ish.fio}
-                      </td>
+                      <td className="name-cell">{ish.fio}</td>
                       <td>{ish.tuman?.nomi}</td>
                       <td>{ish.tuman?.viloyat?.nomi}</td>
                       <td>{ish.telefon || '-'}</td>
                       <td>
-                        <span className={`badge ${ish.isWinner ? 'badge-success' : 'badge-info'}`}>
-                          {ish.isWinner ? 'G\'olib' : 'Faol'}
+                        <span className={`badge ${ish.isActive ? 'badge-success' : 'badge-error'}`}>
+                          {ish.isActive ? 'Faol' : 'Nofaol'}
                         </span>
                       </td>
                       <td className="actions-cell">
-                        {ish.isWinner && (
-                          <button
-                            onClick={() => handleResetWinner(ish._id)}
-                            className="btn-icon"
-                            title="G'olib statusini bekor qilish"
-                          >
-                            🔄
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleToggleActive(ish._id)}
+                          className="btn-icon"
+                          title={ish.isActive ? 'Nofaol qilish' : 'Faol qilish'}
+                        >
+                          {ish.isActive ? '🔴' : '🟢'}
+                        </button>
                         <button
                           onClick={() => handleEdit(ish)}
                           className="btn-icon"
@@ -298,24 +315,37 @@ const Ishtirokchilar = () => {
                   />
                 </div>
                 {!editingIshtirokchi && (
-                  <div className="form-group">
-                    <label className="form-label">Tuman</label>
-                    <select
-                      className="form-input"
-                      value={formData.tuman}
-                      onChange={(e) => setFormData({ ...formData, tuman: e.target.value })}
-                      required
-                    >
-                      <option value="">Tuman tanlang</option>
-                      {viloyatlar.map((v) => (
-                        <optgroup key={v._id} label={v.nomi}>
-                          {tumanlar.filter(t => t.viloyat?._id === v._id).map((t) => (
-                            <option key={t._id} value={t._id}>{t.nomi}</option>
-                          ))}
-                        </optgroup>
-                      ))}
-                    </select>
-                  </div>
+                  <>
+                    <div className="form-group">
+                      <label className="form-label">Viloyat</label>
+                      <select
+                        className="form-input"
+                        value={modalViloyat}
+                        onChange={(e) => handleModalViloyatChange(e.target.value)}
+                        required
+                      >
+                        <option value="">Viloyat tanlang</option>
+                        {viloyatlar.map((v) => (
+                          <option key={v._id} value={v._id}>{v.nomi}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Tuman</label>
+                      <select
+                        className="form-input"
+                        value={formData.tuman}
+                        onChange={(e) => setFormData({ ...formData, tuman: e.target.value })}
+                        required
+                        disabled={!modalViloyat}
+                      >
+                        <option value="">Tuman tanlang</option>
+                        {modalTumanlar.map((t) => (
+                          <option key={t._id} value={t._id}>{t.nomi}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
                 )}
                 <div className="form-group">
                   <label className="form-label">Telefon (ixtiyoriy)</label>

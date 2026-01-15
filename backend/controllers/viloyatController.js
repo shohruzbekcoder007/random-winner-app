@@ -73,18 +73,30 @@ const getViloyat = async (req, res) => {
 // @access  Private/Admin
 const createViloyat = async (req, res) => {
   try {
-    const { nomi } = req.body;
+    const { nomi, soato } = req.body;
 
-    // Mavjudligini tekshirish
-    const exists = await Viloyat.findOne({ nomi: nomi.trim() });
-    if (exists) {
+    // Nomi mavjudligini tekshirish
+    const existsByNomi = await Viloyat.findOne({ nomi: nomi.trim() });
+    if (existsByNomi) {
       return res.status(400).json({
         success: false,
-        message: 'Bu viloyat allaqachon mavjud'
+        message: 'Bu viloyat nomi allaqachon mavjud'
       });
     }
 
-    const viloyat = await Viloyat.create({ nomi: nomi.trim() });
+    // SOATO mavjudligini tekshirish
+    const existsBySoato = await Viloyat.findOne({ soato: soato.trim() });
+    if (existsBySoato) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bu SOATO kodi allaqachon mavjud'
+      });
+    }
+
+    const viloyat = await Viloyat.create({
+      nomi: nomi.trim(),
+      soato: soato.trim()
+    });
 
     res.status(201).json({
       success: true,
@@ -105,7 +117,7 @@ const createViloyat = async (req, res) => {
 // @access  Private/Admin
 const updateViloyat = async (req, res) => {
   try {
-    const { nomi, isActive } = req.body;
+    const { nomi, soato, isActive } = req.body;
 
     const viloyat = await Viloyat.findById(req.params.id);
 
@@ -116,8 +128,20 @@ const updateViloyat = async (req, res) => {
       });
     }
 
+    // SOATO takrorlanmasligini tekshirish
+    if (soato && soato.trim() !== viloyat.soato) {
+      const existsBySoato = await Viloyat.findOne({ soato: soato.trim() });
+      if (existsBySoato) {
+        return res.status(400).json({
+          success: false,
+          message: 'Bu SOATO kodi allaqachon mavjud'
+        });
+      }
+    }
+
     // Yangilash
     if (nomi) viloyat.nomi = nomi.trim();
+    if (soato) viloyat.soato = soato.trim();
     if (typeof isActive === 'boolean') viloyat.isActive = isActive;
 
     await viloyat.save();

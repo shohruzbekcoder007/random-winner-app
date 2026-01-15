@@ -3,80 +3,61 @@ const Tuman = require('../models/Tuman');
 const Ishtirokchi = require('../models/Ishtirokchi');
 const Golib = require('../models/Golib');
 
-// Adolatli random tanlash uchun Fisher-Yates shuffle
-const shuffleArray = (array) => {
-  const shuffled = [...array];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
-};
-
-// Random element tanlash
-const getRandomElement = (array) => {
-  if (array.length === 0) return null;
-  const shuffled = shuffleArray(array);
-  return shuffled[0];
-};
-
-// @desc    Random g'olib tanlash
+// @desc    Random g'olib tanlash (Optimallashtirilgan - 1M+ ishtirokchi uchun)
 // @route   POST /api/random/select
 // @access  Private
 const selectRandomWinner = async (req, res) => {
   try {
     const { excludePreviousWinners = true } = req.body;
 
-    // 1-QADAM: Faol viloyatlarni olish
-    // Faqat faol tumanlar va ishtirokchilari bor viloyatlarni tanlash
-    const viloyatlar = await Viloyat.find({ isActive: true });
-
-    if (viloyatlar.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Faol viloyat topilmadi'
-      });
+    // Avvalgi g'oliblar ro'yxatini olish (agar excludePreviousWinners = true bo'lsa)
+    let previousWinnerIds = [];
+    if (excludePreviousWinners) {
+      const previousWinners = await Golib.find().select('ishtirokchi');
+      previousWinnerIds = previousWinners.map(g => g.ishtirokchi);
     }
 
-    // Viloyatlarni ishtirokchilari bor yoki yo'qligini tekshirish
-    const eligibleViloyatlar = [];
-
-    for (const viloyat of viloyatlar) {
-      // Viloyatda faol tumanlar bor-yo'qligini tekshirish
-      const faolTumanlar = await Tuman.find({
-        viloyat: viloyat._id,
-        isActive: true
-      });
-
-      if (faolTumanlar.length === 0) continue;
-
-      // Har bir tumanda faol ishtirokchilar bor-yo'qligini tekshirish
-      let hasEligibleIshtirokchi = false;
-
-      for (const tuman of faolTumanlar) {
-        const ishtirokchiQuery = {
-          tuman: tuman._id,
-          isActive: true
-        };
-
-        // Oldingi g'oliblarni chiqarib tashlash
-        if (excludePreviousWinners) {
-          ishtirokchiQuery.isWinner = false;
-        }
-
-        const count = await Ishtirokchi.countDocuments(ishtirokchiQuery);
-        if (count > 0) {
-          hasEligibleIshtirokchi = true;
-          break;
-        }
-      }
-
-      if (hasEligibleIshtirokchi) {
-        eligibleViloyatlar.push(viloyat);
-      }
+    // Ishtirokchi filter
+    const ishtirokchiMatch = {
+      isActive: true
+    };
+    if (excludePreviousWinners && previousWinnerIds.length > 0) {
+      ishtirokchiMatch._id = { $nin: previousWinnerIds };
     }
 
-    if (eligibleViloyatlar.length === 0) {
+    // 1-QADAM: Aggregation bilan faol ishtirokchilari bor viloyatlarni topish
+    const viloyatStats = await Ishtirokchi.aggregate([
+      { $match: ishtirokchiMatch },
+      {
+        $lookup: {
+          from: 'tumans',
+          localField: 'tuman',
+          foreignField: '_id',
+          as: 'tumanInfo'
+        }
+      },
+      { $unwind: '$tumanInfo' },
+      { $match: { 'tumanInfo.isActive': true } },
+      {
+        $lookup: {
+          from: 'viloyats',
+          localField: 'tumanInfo.viloyat',
+          foreignField: '_id',
+          as: 'viloyatInfo'
+        }
+      },
+      { $unwind: '$viloyatInfo' },
+      { $match: { 'viloyatInfo.isActive': true } },
+      {
+        $group: {
+          _id: '$viloyatInfo._id',
+          viloyatNomi: { $first: '$viloyatInfo.nomi' },
+          ishtirokchilarSoni: { $sum: 1 }
+        }
+      }
+    ]);
+
+    if (viloyatStats.length === 0) {
       return res.status(400).json({
         success: false,
         message: 'Tanlanishi mumkin bo\'lgan ishtirokchi topilmadi. ' +
@@ -84,79 +65,97 @@ const selectRandomWinner = async (req, res) => {
       });
     }
 
-    // 2-QADAM: Random viloyat tanlash
-    const selectedViloyat = getRandomElement(eligibleViloyatlar);
+    // 2-QADAM: Random viloyat tanlash (weighted random - ishtirokchilar soniga qarab)
+    const totalIshtirokchilar = viloyatStats.reduce((sum, v) => sum + v.ishtirokchilarSoni, 0);
+    let randomIndex = Math.floor(Math.random() * totalIshtirokchilar);
 
-    // 3-QADAM: Tanlangan viloyatdan faol tumanlarni olish
-    const faolTumanlar = await Tuman.find({
-      viloyat: selectedViloyat._id,
-      isActive: true
-    });
+    let selectedViloyatId = null;
+    let selectedViloyatNomi = null;
 
-    // Ishtirokchilari bor tumanlarni filtrlash
-    const eligibleTumanlar = [];
-
-    for (const tuman of faolTumanlar) {
-      const ishtirokchiQuery = {
-        tuman: tuman._id,
-        isActive: true
-      };
-
-      if (excludePreviousWinners) {
-        ishtirokchiQuery.isWinner = false;
-      }
-
-      const count = await Ishtirokchi.countDocuments(ishtirokchiQuery);
-      if (count > 0) {
-        eligibleTumanlar.push(tuman);
+    for (const viloyat of viloyatStats) {
+      randomIndex -= viloyat.ishtirokchilarSoni;
+      if (randomIndex < 0) {
+        selectedViloyatId = viloyat._id;
+        selectedViloyatNomi = viloyat.viloyatNomi;
+        break;
       }
     }
 
-    if (eligibleTumanlar.length === 0) {
+    // 3-QADAM: Tanlangan viloyatdagi faol tumanlarni topish
+    const tumanStats = await Ishtirokchi.aggregate([
+      { $match: ishtirokchiMatch },
+      {
+        $lookup: {
+          from: 'tumans',
+          localField: 'tuman',
+          foreignField: '_id',
+          as: 'tumanInfo'
+        }
+      },
+      { $unwind: '$tumanInfo' },
+      {
+        $match: {
+          'tumanInfo.isActive': true,
+          'tumanInfo.viloyat': selectedViloyatId
+        }
+      },
+      {
+        $group: {
+          _id: '$tumanInfo._id',
+          tumanNomi: { $first: '$tumanInfo.nomi' },
+          ishtirokchilarSoni: { $sum: 1 }
+        }
+      }
+    ]);
+
+    if (tumanStats.length === 0) {
       return res.status(400).json({
         success: false,
         message: 'Tanlangan viloyatda faol tuman topilmadi'
       });
     }
 
-    // 4-QADAM: Random tuman tanlash
-    const selectedTuman = getRandomElement(eligibleTumanlar);
+    // 4-QADAM: Random tuman tanlash (weighted random)
+    const totalTumanIshtirokchilar = tumanStats.reduce((sum, t) => sum + t.ishtirokchilarSoni, 0);
+    let tumanRandomIndex = Math.floor(Math.random() * totalTumanIshtirokchilar);
 
-    // 5-QADAM: Tanlangan tumandan ishtirokchilarni olish
-    const ishtirokchiQuery = {
-      tuman: selectedTuman._id,
-      isActive: true
-    };
+    let selectedTumanId = null;
+    let selectedTumanNomi = null;
 
-    if (excludePreviousWinners) {
-      ishtirokchiQuery.isWinner = false;
+    for (const tuman of tumanStats) {
+      tumanRandomIndex -= tuman.ishtirokchilarSoni;
+      if (tumanRandomIndex < 0) {
+        selectedTumanId = tuman._id;
+        selectedTumanNomi = tuman.tumanNomi;
+        break;
+      }
     }
 
-    const ishtirokchilar = await Ishtirokchi.find(ishtirokchiQuery);
+    // 5-QADAM: Random ishtirokchi tanlash - FAQAT BITTA
+    const randomIshtirokchi = await Ishtirokchi.aggregate([
+      {
+        $match: {
+          ...ishtirokchiMatch,
+          tuman: selectedTumanId
+        }
+      },
+      { $sample: { size: 1 } }
+    ]);
 
-    if (ishtirokchilar.length === 0) {
+    if (randomIshtirokchi.length === 0) {
       return res.status(400).json({
         success: false,
         message: 'Tanlangan tumanda ishtirokchi topilmadi'
       });
     }
 
-    // 6-QADAM: Random ishtirokchi tanlash
-    const selectedIshtirokchi = getRandomElement(ishtirokchilar);
+    const selectedIshtirokchi = randomIshtirokchi[0];
 
-    // 7-QADAM: Ishtirokchini g'olib sifatida belgilash
-    selectedIshtirokchi.isWinner = true;
-    await selectedIshtirokchi.save();
-
-    // 8-QADAM: G'oliblar ro'yxatiga qo'shish
+    // 6-QADAM: G'oliblar jadvaliga yozish (faqat Golib jadvaliga)
     const golib = await Golib.create({
-      viloyat: selectedViloyat._id,
-      tuman: selectedTuman._id,
       ishtirokchi: selectedIshtirokchi._id,
-      viloyatNomi: selectedViloyat.nomi,
-      tumanNomi: selectedTuman.nomi,
-      ishtirokchiFio: selectedIshtirokchi.fio,
-      ishtirokchiTelefon: selectedIshtirokchi.telefon
+      tuman: selectedTumanId,
+      viloyat: selectedViloyatId
     });
 
     // Natijani qaytarish
@@ -167,12 +166,12 @@ const selectRandomWinner = async (req, res) => {
         golib: {
           _id: golib._id,
           viloyat: {
-            _id: selectedViloyat._id,
-            nomi: selectedViloyat.nomi
+            _id: selectedViloyatId,
+            nomi: selectedViloyatNomi
           },
           tuman: {
-            _id: selectedTuman._id,
-            nomi: selectedTuman.nomi
+            _id: selectedTumanId,
+            nomi: selectedTumanNomi
           },
           ishtirokchi: {
             _id: selectedIshtirokchi._id,
@@ -182,9 +181,9 @@ const selectRandomWinner = async (req, res) => {
           tanlanganSana: golib.tanlanganSana
         },
         stats: {
-          jami_viloyatlar: eligibleViloyatlar.length,
-          jami_tumanlar: eligibleTumanlar.length,
-          jami_ishtirokchilar: ishtirokchilar.length
+          jami_viloyatlar: viloyatStats.length,
+          jami_tumanlar: tumanStats.length,
+          jami_ishtirokchilar: totalIshtirokchilar
         }
       }
     });
@@ -198,7 +197,7 @@ const selectRandomWinner = async (req, res) => {
   }
 };
 
-// @desc    Tanlash uchun statistika
+// @desc    Tanlash uchun statistika (Optimallashtirilgan)
 // @route   GET /api/random/stats
 // @access  Private
 const getSelectionStats = async (req, res) => {
@@ -206,38 +205,59 @@ const getSelectionStats = async (req, res) => {
     const { excludePreviousWinners = true } = req.query;
     const exclude = excludePreviousWinners === 'true' || excludePreviousWinners === true;
 
-    // Faol viloyatlar
-    const faolViloyatlar = await Viloyat.countDocuments({ isActive: true });
+    // Avvalgi g'oliblar ro'yxati
+    const previousWinners = await Golib.find().select('ishtirokchi');
+    const previousWinnerIds = previousWinners.map(g => g.ishtirokchi);
 
-    // Faol tumanlar
-    const faolTumanlar = await Tuman.countDocuments({ isActive: true });
+    // Parallel so'rovlar
+    const [
+      faolViloyatlar,
+      faolTumanlar,
+      jamiIshtirokchilar,
+      goliblarSoni
+    ] = await Promise.all([
+      Viloyat.countDocuments({ isActive: true }),
+      Tuman.countDocuments({ isActive: true }),
+      Ishtirokchi.countDocuments({ isActive: true }),
+      Golib.countDocuments()
+    ]);
 
-    // Ishtirokchilar
-    const ishtirokchiQuery = { isActive: true };
-    if (exclude) {
-      ishtirokchiQuery.isWinner = false;
+    // Tanlanishi mumkin bo'lgan ishtirokchilar
+    let tanlanishiMumkin;
+    if (exclude && previousWinnerIds.length > 0) {
+      tanlanishiMumkin = await Ishtirokchi.countDocuments({
+        isActive: true,
+        _id: { $nin: previousWinnerIds }
+      });
+    } else {
+      tanlanishiMumkin = jamiIshtirokchilar;
     }
 
-    const tanlanishiMumkin = await Ishtirokchi.countDocuments(ishtirokchiQuery);
-    const jamiIshtirokchilar = await Ishtirokchi.countDocuments({ isActive: true });
-    const goliblar = await Ishtirokchi.countDocuments({ isWinner: true });
-
-    // Viloyat bo'yicha statistika
+    // Viloyat statistikasi
     const viloyatStats = await Viloyat.aggregate([
       { $match: { isActive: true } },
       {
         $lookup: {
           from: 'tumans',
-          localField: '_id',
-          foreignField: 'viloyat',
-          as: 'tumanlar',
-          pipeline: [{ $match: { isActive: true } }]
+          let: { viloyatId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ['$viloyat', '$$viloyatId'] },
+                isActive: true
+              }
+            },
+            { $count: 'count' }
+          ],
+          as: 'tumanlar'
         }
       },
       {
         $project: {
           nomi: 1,
-          tumanlarSoni: { $size: '$tumanlar' }
+          tumanlarSoni: {
+            $ifNull: [{ $arrayElemAt: ['$tumanlar.count', 0] }, 0]
+          }
         }
       },
       { $sort: { nomi: 1 } }
@@ -250,7 +270,7 @@ const getSelectionStats = async (req, res) => {
         faolTumanlar,
         jamiIshtirokchilar,
         tanlanishiMumkin,
-        goliblar,
+        goliblar: goliblarSoni,
         viloyatStats
       }
     });
@@ -263,21 +283,18 @@ const getSelectionStats = async (req, res) => {
   }
 };
 
-// @desc    Barcha g'olib statuslarini bekor qilish
+// @desc    Barcha g'oliblarni o'chirish (Golib jadvalini tozalash)
 // @route   POST /api/random/reset-all-winners
 // @access  Private/Admin
 const resetAllWinners = async (req, res) => {
   try {
-    const result = await Ishtirokchi.updateMany(
-      { isWinner: true },
-      { isWinner: false }
-    );
+    const result = await Golib.deleteMany({});
 
     res.json({
       success: true,
-      message: `${result.modifiedCount} ta ishtirokchining g'olib statusi bekor qilindi`,
+      message: `${result.deletedCount} ta g'olib yozuvi o'chirildi`,
       data: {
-        modifiedCount: result.modifiedCount
+        deletedCount: result.deletedCount
       }
     });
   } catch (error) {

@@ -7,6 +7,13 @@ const tumanSchema = new mongoose.Schema({
     required: [true, 'Tuman nomi kiritilishi shart'],
     trim: true
   },
+  soato: {
+    type: String,
+    required: [true, 'SOATO kodi kiritilishi shart'],
+    unique: true,
+    trim: true,
+    match: [/^\d{7}$/, 'SOATO kodi 7 raqamdan iborat bo\'lishi kerak (masalan: 1703401)']
+  },
   viloyat: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Viloyat',
@@ -22,6 +29,12 @@ const tumanSchema = new mongoose.Schema({
 
 // Bir viloyatda bir xil nomli tuman bo'lmasligi uchun
 tumanSchema.index({ nomi: 1, viloyat: 1 }, { unique: true });
+
+// SOATO bo'yicha index
+tumanSchema.index({ soato: 1 });
+
+// Aggregation so'rovlari uchun index
+tumanSchema.index({ viloyat: 1, isActive: 1 });
 
 // Virtual field - tumandagi ishtirokchilar soni
 tumanSchema.virtual('ishtirokchilarSoni', {

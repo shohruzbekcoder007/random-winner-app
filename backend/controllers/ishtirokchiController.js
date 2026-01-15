@@ -6,11 +6,10 @@ const Tuman = require('../models/Tuman');
 // @access  Private
 const getIshtirokchilar = async (req, res) => {
   try {
-    const { tuman, viloyat, isWinner, isActive, page = 1, limit = 50 } = req.query;
+    const { tuman, viloyat, isActive, page = 1, limit = 50 } = req.query;
 
     let query = {};
     if (tuman) query.tuman = tuman;
-    if (typeof isWinner !== 'undefined') query.isWinner = isWinner === 'true';
     if (typeof isActive !== 'undefined') query.isActive = isActive === 'true';
 
     // Viloyat bo'yicha filter
@@ -147,7 +146,7 @@ const createIshtirokchi = async (req, res) => {
 // @access  Private/Admin
 const updateIshtirokchi = async (req, res) => {
   try {
-    const { fio, telefon, isActive, isWinner } = req.body;
+    const { fio, telefon, isActive } = req.body;
 
     const ishtirokchi = await Ishtirokchi.findById(req.params.id);
 
@@ -162,7 +161,6 @@ const updateIshtirokchi = async (req, res) => {
     if (fio) ishtirokchi.fio = fio.trim();
     if (telefon !== undefined) ishtirokchi.telefon = telefon.trim();
     if (typeof isActive === 'boolean') ishtirokchi.isActive = isActive;
-    if (typeof isWinner === 'boolean') ishtirokchi.isWinner = isWinner;
 
     await ishtirokchi.save();
 
@@ -217,10 +215,10 @@ const deleteIshtirokchi = async (req, res) => {
   }
 };
 
-// @desc    G'olib statusini bekor qilish
-// @route   PATCH /api/ishtirokchi/:id/reset-winner
+// @desc    Ishtirokchi faolligini o'zgartirish
+// @route   PATCH /api/ishtirokchi/:id/toggle-active
 // @access  Private/Admin
-const resetWinnerStatus = async (req, res) => {
+const toggleActive = async (req, res) => {
   try {
     const ishtirokchi = await Ishtirokchi.findById(req.params.id);
 
@@ -231,16 +229,24 @@ const resetWinnerStatus = async (req, res) => {
       });
     }
 
-    ishtirokchi.isWinner = false;
+    ishtirokchi.isActive = !ishtirokchi.isActive;
     await ishtirokchi.save();
+
+    const populatedIshtirokchi = await Ishtirokchi.findById(ishtirokchi._id).populate({
+      path: 'tuman',
+      select: 'nomi viloyat',
+      populate: {
+        path: 'viloyat',
+        select: 'nomi'
+      }
+    });
 
     res.json({
       success: true,
-      data: ishtirokchi,
-      message: 'G\'olib statusi bekor qilindi'
+      data: populatedIshtirokchi
     });
   } catch (error) {
-    console.error('Reset winner xatosi:', error);
+    console.error('Toggle active xatosi:', error);
     res.status(500).json({
       success: false,
       message: 'Server xatosi'
@@ -254,5 +260,5 @@ module.exports = {
   createIshtirokchi,
   updateIshtirokchi,
   deleteIshtirokchi,
-  resetWinnerStatus
+  toggleActive
 };

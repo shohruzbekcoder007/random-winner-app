@@ -1,4 +1,5 @@
 const Golib = require('../models/Golib');
+const Tuman = require('../models/Tuman');
 
 // @desc    Barcha g'oliblarni olish
 // @route   GET /api/golib
@@ -14,9 +15,9 @@ const getGoliblar = async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const goliblar = await Golib.find(query)
-      .populate('viloyat', 'nomi')
-      .populate('tuman', 'nomi')
       .populate('ishtirokchi', 'fio telefon')
+      .populate('tuman', 'nomi soato')
+      .populate('viloyat', 'nomi soato')
       .sort({ tanlanganSana: -1 })
       .skip(skip)
       .limit(parseInt(limit));
@@ -46,9 +47,9 @@ const getGoliblar = async (req, res) => {
 const getLatestGolib = async (req, res) => {
   try {
     const golib = await Golib.findOne()
-      .populate('viloyat', 'nomi')
-      .populate('tuman', 'nomi')
       .populate('ishtirokchi', 'fio telefon')
+      .populate('tuman', 'nomi soato')
+      .populate('viloyat', 'nomi soato')
       .sort({ tanlanganSana: -1 });
 
     if (!golib) {
@@ -78,9 +79,9 @@ const getLatestGolib = async (req, res) => {
 const getGolib = async (req, res) => {
   try {
     const golib = await Golib.findById(req.params.id)
-      .populate('viloyat', 'nomi')
-      .populate('tuman', 'nomi')
-      .populate('ishtirokchi', 'fio telefon');
+      .populate('ishtirokchi', 'fio telefon')
+      .populate('tuman', 'nomi soato')
+      .populate('viloyat', 'nomi soato');
 
     if (!golib) {
       return res.status(404).json({
@@ -141,8 +142,17 @@ const getStats = async (req, res) => {
     // Viloyatlar bo'yicha statistika
     const viloyatStats = await Golib.aggregate([
       {
+        $lookup: {
+          from: 'viloyats',
+          localField: 'viloyat',
+          foreignField: '_id',
+          as: 'viloyatInfo'
+        }
+      },
+      { $unwind: '$viloyatInfo' },
+      {
         $group: {
-          _id: '$viloyatNomi',
+          _id: '$viloyatInfo.nomi',
           count: { $sum: 1 }
         }
       },
@@ -152,8 +162,26 @@ const getStats = async (req, res) => {
     // Tumanlar bo'yicha statistika
     const tumanStats = await Golib.aggregate([
       {
+        $lookup: {
+          from: 'tumans',
+          localField: 'tuman',
+          foreignField: '_id',
+          as: 'tumanInfo'
+        }
+      },
+      { $unwind: '$tumanInfo' },
+      {
+        $lookup: {
+          from: 'viloyats',
+          localField: 'viloyat',
+          foreignField: '_id',
+          as: 'viloyatInfo'
+        }
+      },
+      { $unwind: '$viloyatInfo' },
+      {
         $group: {
-          _id: { viloyat: '$viloyatNomi', tuman: '$tumanNomi' },
+          _id: { viloyat: '$viloyatInfo.nomi', tuman: '$tumanInfo.nomi' },
           count: { $sum: 1 }
         }
       },

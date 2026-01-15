@@ -7,7 +7,7 @@ const Viloyatlar = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingViloyat, setEditingViloyat] = useState(null);
-  const [formData, setFormData] = useState({ nomi: '' });
+  const [formData, setFormData] = useState({ nomi: '', soato: '' });
 
   useEffect(() => {
     fetchViloyatlar();
@@ -34,7 +34,7 @@ const Viloyatlar = () => {
       }
       setShowModal(false);
       setEditingViloyat(null);
-      setFormData({ nomi: '' });
+      setFormData({ nomi: '', soato: '' });
       fetchViloyatlar();
     } catch (error) {
       alert(error.response?.data?.message || 'Xato yuz berdi');
@@ -43,7 +43,7 @@ const Viloyatlar = () => {
 
   const handleEdit = (viloyat) => {
     setEditingViloyat(viloyat);
-    setFormData({ nomi: viloyat.nomi });
+    setFormData({ nomi: viloyat.nomi, soato: viloyat.soato });
     setShowModal(true);
   };
 
@@ -82,7 +82,7 @@ const Viloyatlar = () => {
           <button
             onClick={() => {
               setEditingViloyat(null);
-              setFormData({ nomi: '' });
+              setFormData({ nomi: '', soato: '' });
               setShowModal(true);
             }}
             className="btn btn-primary"
@@ -103,6 +103,7 @@ const Viloyatlar = () => {
                 <thead>
                   <tr>
                     <th>#</th>
+                    <th>SOATO</th>
                     <th>Nomi</th>
                     <th>Tumanlar</th>
                     <th>Faol tumanlar</th>
@@ -114,6 +115,7 @@ const Viloyatlar = () => {
                   {viloyatlar.map((viloyat, index) => (
                     <tr key={viloyat._id}>
                       <td>{index + 1}</td>
+                      <td><code>{viloyat.soato}</code></td>
                       <td className="name-cell">{viloyat.nomi}</td>
                       <td>{viloyat.tumanlarSoni}</td>
                       <td>{viloyat.faolTumanlarSoni}</td>
@@ -162,6 +164,22 @@ const Viloyatlar = () => {
                 <button onClick={() => setShowModal(false)} className="modal-close">×</button>
               </div>
               <form onSubmit={handleSubmit}>
+                <div className="form-group">
+                  <label className="form-label">SOATO kodi</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={formData.soato}
+                    onChange={(e) => setFormData({ ...formData, soato: e.target.value })}
+                    placeholder="Masalan: 1703"
+                    pattern="\d{4}"
+                    maxLength={4}
+                    required
+                  />
+                  <small style={{ color: 'var(--gray-500)', fontSize: '12px' }}>
+                    4 raqamdan iborat bo'lishi kerak
+                  </small>
+                </div>
                 <div className="form-group">
                   <label className="form-label">Viloyat nomi</label>
                   <input

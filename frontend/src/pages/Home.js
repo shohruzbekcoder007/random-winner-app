@@ -135,9 +135,9 @@ const Home = () => {
             ) : latestWinner ? (
               <div className="latest-winner">
                 <span className="latest-label">Oxirgi g'olib</span>
-                <h3 className="latest-name">{latestWinner.ishtirokchiFio}</h3>
+                <h3 className="latest-name">{latestWinner.ishtirokchi?.fio}</h3>
                 <span className="latest-location">
-                  {latestWinner.tumanNomi}, {latestWinner.viloyatNomi}
+                  {latestWinner.tuman?.nomi}, {latestWinner.viloyat?.nomi}
                 </span>
               </div>
             ) : (

@@ -1,10 +1,10 @@
 const mongoose = require('mongoose');
 
-// G'olib schema
+// G'olib schema - barcha g'oliblar faqat shu jadvalda saqlanadi
 const golibSchema = new mongoose.Schema({
-  viloyat: {
+  ishtirokchi: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Viloyat',
+    ref: 'Ishtirokchi',
     required: true
   },
   tuman: {
@@ -12,34 +12,25 @@ const golibSchema = new mongoose.Schema({
     ref: 'Tuman',
     required: true
   },
-  ishtirokchi: {
+  viloyat: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Ishtirokchi',
+    ref: 'Viloyat',
     required: true
   },
   tanlanganSana: {
     type: Date,
     default: Date.now
-  },
-  // Qo'shimcha ma'lumotlar - tanlangan paytdagi holatni saqlash
-  viloyatNomi: {
-    type: String,
-    required: true
-  },
-  tumanNomi: {
-    type: String,
-    required: true
-  },
-  ishtirokchiFio: {
-    type: String,
-    required: true
-  },
-  ishtirokchiTelefon: {
-    type: String,
-    default: ''
   }
 }, {
   timestamps: true
 });
+
+// Bir ishtirokchi faqat bir marta g'olib bo'lishi mumkin
+golibSchema.index({ ishtirokchi: 1 }, { unique: true });
+
+// Tez qidirish uchun indexlar
+golibSchema.index({ tanlanganSana: -1 });
+golibSchema.index({ viloyat: 1 });
+golibSchema.index({ tuman: 1 });
 
 module.exports = mongoose.model('Golib', golibSchema);

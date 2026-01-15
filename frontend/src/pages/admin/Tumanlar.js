@@ -8,7 +8,7 @@ const Tumanlar = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingTuman, setEditingTuman] = useState(null);
-  const [formData, setFormData] = useState({ nomi: '', viloyat: '' });
+  const [formData, setFormData] = useState({ nomi: '', soato: '', viloyat: '' });
   const [filterViloyat, setFilterViloyat] = useState('');
 
   useEffect(() => {
@@ -34,13 +34,13 @@ const Tumanlar = () => {
     e.preventDefault();
     try {
       if (editingTuman) {
-        await api.put(`/tuman/${editingTuman._id}`, { nomi: formData.nomi });
+        await api.put(`/tuman/${editingTuman._id}`, { nomi: formData.nomi, soato: formData.soato });
       } else {
         await api.post('/tuman', formData);
       }
       setShowModal(false);
       setEditingTuman(null);
-      setFormData({ nomi: '', viloyat: '' });
+      setFormData({ nomi: '', soato: '', viloyat: '' });
       fetchData();
     } catch (error) {
       alert(error.response?.data?.message || 'Xato yuz berdi');
@@ -51,6 +51,7 @@ const Tumanlar = () => {
     setEditingTuman(tuman);
     setFormData({
       nomi: tuman.nomi,
+      soato: tuman.soato,
       viloyat: tuman.viloyat._id
     });
     setShowModal(true);
@@ -91,7 +92,7 @@ const Tumanlar = () => {
           <button
             onClick={() => {
               setEditingTuman(null);
-              setFormData({ nomi: '', viloyat: viloyatlar[0]?._id || '' });
+              setFormData({ nomi: '', soato: '', viloyat: viloyatlar[0]?._id || '' });
               setShowModal(true);
             }}
             className="btn btn-primary"
@@ -126,6 +127,7 @@ const Tumanlar = () => {
                 <thead>
                   <tr>
                     <th>#</th>
+                    <th>SOATO</th>
                     <th>Nomi</th>
                     <th>Viloyat</th>
                     <th>Ishtirokchilar</th>
@@ -138,6 +140,7 @@ const Tumanlar = () => {
                   {tumanlar.map((tuman, index) => (
                     <tr key={tuman._id}>
                       <td>{index + 1}</td>
+                      <td><code>{tuman.soato}</code></td>
                       <td className="name-cell">{tuman.nomi}</td>
                       <td>{tuman.viloyat?.nomi}</td>
                       <td>{tuman.ishtirokchilarSoni}</td>
@@ -198,11 +201,27 @@ const Tumanlar = () => {
                     >
                       <option value="">Viloyat tanlang</option>
                       {viloyatlar.map((v) => (
-                        <option key={v._id} value={v._id}>{v.nomi}</option>
+                        <option key={v._id} value={v._id}>{v.soato} - {v.nomi}</option>
                       ))}
                     </select>
                   </div>
                 )}
+                <div className="form-group">
+                  <label className="form-label">SOATO kodi</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={formData.soato}
+                    onChange={(e) => setFormData({ ...formData, soato: e.target.value })}
+                    placeholder="Masalan: 1703401"
+                    pattern="\d{7}"
+                    maxLength={7}
+                    required
+                  />
+                  <small style={{ color: 'var(--gray-500)', fontSize: '12px' }}>
+                    7 raqamdan iborat bo'lishi kerak
+                  </small>
+                </div>
                 <div className="form-group">
                   <label className="form-label">Tuman nomi</label>
                   <input

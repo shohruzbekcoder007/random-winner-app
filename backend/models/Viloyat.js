@@ -8,6 +8,13 @@ const viloyatSchema = new mongoose.Schema({
     unique: true,
     trim: true
   },
+  soato: {
+    type: String,
+    required: [true, 'SOATO kodi kiritilishi shart'],
+    unique: true,
+    trim: true,
+    match: [/^\d{4}$/, 'SOATO kodi 4 raqamdan iborat bo\'lishi kerak (masalan: 1703)']
+  },
   isActive: {
     type: Boolean,
     default: true
@@ -15,6 +22,9 @@ const viloyatSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+// SOATO bo'yicha index
+viloyatSchema.index({ soato: 1 });
 
 // Virtual field - viloyatga tegishli tumanlar soni
 viloyatSchema.virtual('tumanlarSoni', {

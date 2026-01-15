@@ -17,10 +17,6 @@ const ishtirokchiSchema = new mongoose.Schema({
     trim: true,
     default: ''
   },
-  isWinner: {
-    type: Boolean,
-    default: false  // G'olib bo'lganmi yoki yo'qmi
-  },
   isActive: {
     type: Boolean,
     default: true
@@ -31,5 +27,9 @@ const ishtirokchiSchema = new mongoose.Schema({
 
 // FIO va tuman kombinatsiyasi unique bo'lishi
 ishtirokchiSchema.index({ fio: 1, tuman: 1 }, { unique: true });
+
+// Random tanlash uchun indexlar (1M+ ishtirokchi uchun muhim!)
+ishtirokchiSchema.index({ isActive: 1 });
+ishtirokchiSchema.index({ tuman: 1, isActive: 1 });
 
 module.exports = mongoose.model('Ishtirokchi', ishtirokchiSchema);

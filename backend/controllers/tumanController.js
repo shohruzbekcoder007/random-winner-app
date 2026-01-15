@@ -14,7 +14,7 @@ const getTumanlar = async (req, res) => {
     if (typeof isActive !== 'undefined') query.isActive = isActive === 'true';
 
     const tumanlar = await Tuman.find(query)
-      .populate('viloyat', 'nomi')
+      .populate('viloyat', 'nomi soato')
       .sort({ nomi: 1 });
 
     // Har bir tuman uchun ishtirokchilar sonini hisoblash
@@ -53,7 +53,7 @@ const getTumanlar = async (req, res) => {
 // @access  Private
 const getTuman = async (req, res) => {
   try {
-    const tuman = await Tuman.findById(req.params.id).populate('viloyat', 'nomi');
+    const tuman = await Tuman.findById(req.params.id).populate('viloyat', 'nomi soato');
 
     if (!tuman) {
       return res.status(404).json({
@@ -86,7 +86,7 @@ const getTuman = async (req, res) => {
 // @access  Private/Admin
 const createTuman = async (req, res) => {
   try {
-    const { nomi, viloyat, isActive } = req.body;
+    const { nomi, soato, viloyat, isActive } = req.body;
 
     // Viloyat mavjudligini tekshirish
     const viloyatExists = await Viloyat.findById(viloyat);
@@ -106,13 +106,23 @@ const createTuman = async (req, res) => {
       });
     }
 
+    // SOATO mavjudligini tekshirish
+    const existsBySoato = await Tuman.findOne({ soato: soato.trim() });
+    if (existsBySoato) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bu SOATO kodi allaqachon mavjud'
+      });
+    }
+
     const tuman = await Tuman.create({
       nomi: nomi.trim(),
+      soato: soato.trim(),
       viloyat,
       isActive: isActive !== false
     });
 
-    const populatedTuman = await Tuman.findById(tuman._id).populate('viloyat', 'nomi');
+    const populatedTuman = await Tuman.findById(tuman._id).populate('viloyat', 'nomi soato');
 
     res.status(201).json({
       success: true,
@@ -133,7 +143,7 @@ const createTuman = async (req, res) => {
 // @access  Private/Admin
 const updateTuman = async (req, res) => {
   try {
-    const { nomi, isActive } = req.body;
+    const { nomi, soato, isActive } = req.body;
 
     const tuman = await Tuman.findById(req.params.id);
 
@@ -144,13 +154,25 @@ const updateTuman = async (req, res) => {
       });
     }
 
+    // SOATO takrorlanmasligini tekshirish
+    if (soato && soato.trim() !== tuman.soato) {
+      const existsBySoato = await Tuman.findOne({ soato: soato.trim() });
+      if (existsBySoato) {
+        return res.status(400).json({
+          success: false,
+          message: 'Bu SOATO kodi allaqachon mavjud'
+        });
+      }
+    }
+
     // Yangilash
     if (nomi) tuman.nomi = nomi.trim();
+    if (soato) tuman.soato = soato.trim();
     if (typeof isActive === 'boolean') tuman.isActive = isActive;
 
     await tuman.save();
 
-    const populatedTuman = await Tuman.findById(tuman._id).populate('viloyat', 'nomi');
+    const populatedTuman = await Tuman.findById(tuman._id).populate('viloyat', 'nomi soato');
 
     res.json({
       success: true,

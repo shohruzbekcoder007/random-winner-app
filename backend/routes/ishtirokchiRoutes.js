@@ -6,7 +6,7 @@ const {
   createIshtirokchi,
   updateIshtirokchi,
   deleteIshtirokchi,
-  resetWinnerStatus
+  toggleActive
 } = require('../controllers/ishtirokchiController');
 const { protect, adminOnly } = require('../middleware/authMiddleware');
 
@@ -22,6 +22,6 @@ router.route('/:id')
   .put(adminOnly, updateIshtirokchi)
   .delete(adminOnly, deleteIshtirokchi);
 
-router.patch('/:id/reset-winner', adminOnly, resetWinnerStatus);
+router.patch('/:id/toggle-active', adminOnly, toggleActive);
 
 module.exports = router;

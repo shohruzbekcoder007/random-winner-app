@@ -102,11 +102,11 @@ const Goliblar = () => {
                       <td>{(page - 1) * 20 + index + 1}</td>
                       <td className="fio-cell">
                         <span className="winner-icon">🏆</span>
-                        {golib.ishtirokchiFio}
+                        {golib.ishtirokchi?.fio}
                       </td>
-                      <td>{golib.viloyatNomi}</td>
-                      <td>{golib.tumanNomi}</td>
-                      <td>{golib.ishtirokchiTelefon || '-'}</td>
+                      <td>{golib.viloyat?.nomi}</td>
+                      <td>{golib.tuman?.nomi}</td>
+                      <td>{golib.ishtirokchi?.telefon || '-'}</td>
                       <td>{formatDate(golib.tanlanganSana)}</td>
                     </tr>
                   ))}
