@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { showError, showSuccess } from '../services/api';
 import './Login.css';
 
 const Login = () => {
@@ -14,17 +15,39 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
 
-    const result = await login(username, password);
-
-    if (result.success) {
-      navigate('/');
-    } else {
-      setError(result.message);
+    // Validatsiya
+    if (!username.trim()) {
+      setError('Foydalanuvchi nomini kiriting');
+      showError({ errorMessage: 'Foydalanuvchi nomini kiriting' });
+      return;
     }
 
-    setLoading(false);
+    if (!password) {
+      setError('Parolni kiriting');
+      showError({ errorMessage: 'Parolni kiriting' });
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const result = await login(username, password);
+
+      if (result.success) {
+        showSuccess('Tizimga muvaffaqiyatli kirdingiz!');
+        navigate('/');
+      } else {
+        setError(result.message);
+        showError({ errorMessage: result.message });
+      }
+    } catch (err) {
+      const message = err.errorMessage || 'Kirish xatosi yuz berdi';
+      setError(message);
+      showError({ errorMessage: message });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

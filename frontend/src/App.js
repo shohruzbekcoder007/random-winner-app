@@ -5,6 +5,7 @@ import 'react-toastify/dist/ReactToastify.css';
 
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 import Navbar from './components/Navbar';
 
 // Pages
@@ -21,8 +22,9 @@ import Users from './pages/admin/Users';
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
+    <ErrorBoundary>
+      <AuthProvider>
+        <Router>
         <div className="app">
           <Routes>
             {/* Public Route */}
@@ -125,8 +127,9 @@ function App() {
             pauseOnHover
           />
         </div>
-      </Router>
-    </AuthProvider>
+        </Router>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 
