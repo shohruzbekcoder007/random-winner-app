@@ -25,10 +25,6 @@ const ishtirokchiSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// FIO va tuman kombinatsiyasi unique bo'lishi
-ishtirokchiSchema.index({ fio: 1, tuman: 1 }, { unique: true });
-
-// Random tanlash uchun indexlar (1M+ ishtirokchi uchun muhim!)
 ishtirokchiSchema.index({ isActive: 1 });
 ishtirokchiSchema.index({ tuman: 1, isActive: 1 });
 

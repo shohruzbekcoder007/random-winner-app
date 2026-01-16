@@ -26,7 +26,8 @@ const golibSchema = new mongoose.Schema({
 });
 
 // Bir ishtirokchi faqat bir marta g'olib bo'lishi mumkin
-golibSchema.index({ ishtirokchi: 1 }, { unique: true });
+// sparse: true - null qiymatlarni indeksga qo'shmaydi
+golibSchema.index({ ishtirokchi: 1 }, { unique: true, sparse: true });
 
 // Tez qidirish uchun indexlar
 golibSchema.index({ tanlanganSana: -1 });

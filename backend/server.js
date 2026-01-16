@@ -1,13 +1,33 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const http = require('http');
+const { Server } = require('socket.io');
 require('dotenv').config();
 
 const connectDB = require('./config/db');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
+const { setupSocketHandlers } = require('./socket/socketHandler');
 
 // Express ilovasini yaratish
 const app = express();
+
+// HTTP server yaratish (Socket.IO uchun)
+const server = http.createServer(app);
+
+// Socket.IO sozlash
+const io = new Server(server, {
+  cors: {
+    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    methods: ['GET', 'POST'],
+    credentials: true
+  },
+  pingTimeout: 60000,
+  pingInterval: 25000
+});
+
+// Socket.IO ni global qilish (boshqa modullarda ishlatish uchun)
+app.set('io', io);
 
 // MongoDB ga ulanish
 connectDB();
@@ -48,6 +68,9 @@ app.use(notFound);
 // Global error handler
 app.use(errorHandler);
 
+// Socket.IO event handlerlarini sozlash
+setupSocketHandlers(io);
+
 // Unhandled rejection va exception
 process.on('unhandledRejection', (err) => {
   console.error('UNHANDLED REJECTION:', err.message);
@@ -60,6 +83,7 @@ process.on('uncaughtException', (err) => {
 
 // Serverni ishga tushirish
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server ${PORT} portda ishlayapti (${process.env.NODE_ENV || 'development'} mode)`);
+  console.log('Socket.IO tayyor');
 });

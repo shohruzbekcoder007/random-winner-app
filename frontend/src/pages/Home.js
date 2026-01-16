@@ -1,23 +1,58 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
+import { showSuccess, showError } from '../services/api';
 import './Home.css';
 
 const Home = () => {
   const { isAdmin } = useAuth();
+  const { isConnected, connect, selectRandomWinner, onProgress, onStarted, onNewWinner } = useSocket();
+
   const [stats, setStats] = useState(null);
   const [latestWinner, setLatestWinner] = useState(null);
   const [selectedWinner, setSelectedWinner] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selecting, setSelecting] = useState(false);
   const [excludePrevious, setExcludePrevious] = useState(true);
-  const [animating, setAnimating] = useState(false);
+  const [progress, setProgress] = useState(null);
 
+  // Socket ulanishini boshlash
   useEffect(() => {
-    fetchData();
-  }, [excludePrevious]);
+    connect();
+  }, [connect]);
 
-  const fetchData = async () => {
+  // Yangi g'olib xabarini tinglash
+  useEffect(() => {
+    const unsubscribe = onNewWinner((data) => {
+      showSuccess(data.message);
+      fetchData();
+    });
+    return unsubscribe;
+  }, [onNewWinner]);
+
+  // Progress xabarini tinglash
+  useEffect(() => {
+    const unsubscribe = onProgress((data) => {
+      setProgress(data);
+    });
+    return unsubscribe;
+  }, [onProgress]);
+
+  // Started xabarini tinglash
+  useEffect(() => {
+    const unsubscribe = onStarted((data) => {
+      setProgress({
+        step: 0,
+        totalSteps: 6,
+        message: data.message,
+        percent: 0
+      });
+    });
+    return unsubscribe;
+  }, [onStarted]);
+
+  const fetchData = useCallback(async () => {
     try {
       const [statsRes, latestRes] = await Promise.all([
         api.get(`/random/stats?excludePreviousWinners=${excludePrevious}`),
@@ -31,29 +66,36 @@ const Home = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [excludePrevious]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleSelectWinner = async () => {
-    setSelecting(true);
-    setAnimating(true);
-    setSelectedWinner(null);
+    if (!isConnected) {
+      showError({ errorMessage: 'Server bilan aloqa yo\'q. Sahifani yangilang.' });
+      return;
+    }
 
-    // Animatsiya effekti
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    setSelecting(true);
+    setSelectedWinner(null);
+    setProgress(null);
 
     try {
-      const response = await api.post('/random/select', { excludePreviousWinners: excludePrevious });
+      const result = await selectRandomWinner({ excludePreviousWinners: excludePrevious });
 
-      if (response.data.success) {
-        setSelectedWinner(response.data.data.golib);
-        setLatestWinner(response.data.data.golib);
-        fetchData(); // Statistikani yangilash
+      if (result.success) {
+        setSelectedWinner(result.data.golib);
+        setLatestWinner(result.data.golib);
+        showSuccess('G\'olib muvaffaqiyatli tanlandi!');
+        fetchData();
       }
     } catch (error) {
-      alert(error.response?.data?.message || 'G\'olib tanlashda xato');
+      showError({ errorMessage: error.message || 'G\'olib tanlashda xato' });
     } finally {
       setSelecting(false);
-      setAnimating(false);
+      setProgress(null);
     }
   };
 
@@ -64,10 +106,10 @@ const Home = () => {
 
     try {
       await api.post('/random/reset-all-winners');
-      alert('Barcha g\'olib statuslari bekor qilindi');
+      showSuccess('Barcha g\'olib statuslari bekor qilindi');
       fetchData();
     } catch (error) {
-      alert(error.response?.data?.message || 'Xato yuz berdi');
+      showError(error);
     }
   };
 
@@ -82,6 +124,12 @@ const Home = () => {
   return (
     <div className="home-page">
       <div className="container">
+        {/* Socket ulanish holati */}
+        <div className={`connection-status ${isConnected ? 'connected' : 'disconnected'}`}>
+          <span className="status-dot"></span>
+          {isConnected ? 'Server bilan ulangan' : 'Server bilan aloqa yo\'q'}
+        </div>
+
         {/* Statistika */}
         <div className="stats-grid">
           <div className="stat-card">
@@ -116,8 +164,31 @@ const Home = () => {
 
         {/* Random tanlash */}
         <div className="selection-section">
-          <div className={`selection-card ${animating ? 'animating' : ''}`}>
-            {selectedWinner ? (
+          <div className={`selection-card ${selecting ? 'animating' : ''}`}>
+            {/* Progress ko'rsatish */}
+            {selecting && progress && (
+              <div className="selection-progress">
+                <div className="progress-bar-container">
+                  <div
+                    className="progress-bar-fill"
+                    style={{ width: `${progress.percent}%` }}
+                  ></div>
+                </div>
+                <div className="progress-info">
+                  <span className="progress-message">{progress.message}</span>
+                  <span className="progress-percent">{progress.percent}%</span>
+                </div>
+                {progress.viloyat && (
+                  <div className="progress-location">
+                    <span>🏛️ {progress.viloyat}</span>
+                    {progress.tuman && <span> → 📍 {progress.tuman}</span>}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Natija */}
+            {!selecting && selectedWinner ? (
               <div className="winner-result">
                 <div className="winner-badge">🎉 G'OLIB 🎉</div>
                 <h2 className="winner-name">{selectedWinner.ishtirokchi.fio}</h2>
@@ -132,7 +203,7 @@ const Home = () => {
                   )}
                 </div>
               </div>
-            ) : latestWinner ? (
+            ) : !selecting && latestWinner ? (
               <div className="latest-winner">
                 <span className="latest-label">Oxirgi g'olib</span>
                 <h3 className="latest-name">{latestWinner.ishtirokchi?.fio}</h3>
@@ -140,11 +211,11 @@ const Home = () => {
                   {latestWinner.tuman?.nomi}, {latestWinner.viloyat?.nomi}
                 </span>
               </div>
-            ) : (
+            ) : !selecting ? (
               <div className="no-winner">
                 <span>Hali g'olib tanlanmagan</span>
               </div>
-            )}
+            ) : null}
 
             <div className="selection-controls">
               <label className="checkbox-label">
@@ -152,13 +223,14 @@ const Home = () => {
                   type="checkbox"
                   checked={excludePrevious}
                   onChange={(e) => setExcludePrevious(e.target.checked)}
+                  disabled={selecting}
                 />
                 <span>Oldingi g'oliblarni hisobga olmaslik</span>
               </label>
 
               <button
                 onClick={handleSelectWinner}
-                disabled={selecting || stats?.tanlanishiMumkin === 0}
+                disabled={selecting || stats?.tanlanishiMumkin === 0 || !isConnected}
                 className={`btn-select ${selecting ? 'selecting' : ''}`}
               >
                 {selecting ? (

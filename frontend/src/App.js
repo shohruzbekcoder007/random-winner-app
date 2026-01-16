@@ -4,6 +4,7 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 import { AuthProvider } from './context/AuthContext';
+import { SocketProvider } from './context/SocketContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import Navbar from './components/Navbar';
@@ -24,7 +25,8 @@ function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <Router>
+        <SocketProvider>
+          <Router>
         <div className="app">
           <Routes>
             {/* Public Route */}
@@ -127,7 +129,8 @@ function App() {
             pauseOnHover
           />
         </div>
-        </Router>
+          </Router>
+        </SocketProvider>
       </AuthProvider>
     </ErrorBoundary>
   );

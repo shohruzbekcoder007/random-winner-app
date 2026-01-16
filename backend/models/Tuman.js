@@ -21,7 +21,7 @@ const tumanSchema = new mongoose.Schema({
   },
   isActive: {
     type: Boolean,
-    default: true  // true = ishtirok etadi, false = ishtirok etmaydi
+    default: false  // false = ishtirok etmaydi (default), true = ishtirok etadi
   }
 }, {
   timestamps: true
