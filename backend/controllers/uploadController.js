@@ -351,35 +351,89 @@ const downloadTemplate = async (req, res) => {
   }
 };
 
-// @desc    Viloyat bo'yicha namuna Excel faylni yuklab olish
-// @route   GET /api/upload/template-by-viloyat
+// @desc    Viloyat bo'yicha namuna Excel faylni yuklab olish (dinamik - haqiqiy SOATO kodlari bilan)
+// @route   GET /api/upload/template-by-viloyat?viloyatId=xxx
 // @access  Private/Admin
 const downloadTemplateByViloyat = async (req, res) => {
   try {
-    // Namuna ma'lumotlar (SOATO, FIO va Telefon)
+    const { viloyatId } = req.query;
+
+    if (!viloyatId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Viloyat tanlanishi shart'
+      });
+    }
+
+    // Viloyatni tekshirish
+    const viloyat = await Viloyat.findById(viloyatId);
+    if (!viloyat) {
+      return res.status(404).json({
+        success: false,
+        message: 'Viloyat topilmadi'
+      });
+    }
+
+    // Viloyatga tegishli barcha tumanlarni olish
+    const tumanlar = await Tuman.find({ viloyat: viloyatId, isActive: true }).sort({ nomi: 1 });
+
+    if (tumanlar.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bu viloyatda faol tuman topilmadi'
+      });
+    }
+
+    // Namuna ma'lumotlar yaratish - haqiqiy SOATO kodlari bilan
     const templateData = [
-      ['SOATO', 'FIO', 'Telefon'],
-      ['1703401', 'Alijon Valiyev', '+998901234567'],
-      ['1703401', 'Bobur Karimov', '+998907654321'],
-      ['1703402', 'Gulnora Rahimova', ''],
-      ['1703402', 'Sardor Toshmatov', '+998933334455']
+      ['SOATO', 'FIO', 'Telefon']
     ];
+
+    // Har bir tuman uchun 1 tadan namuna qator qo'shish
+    const namunalarFio = ['Alijon Valiyev', 'Bobur Karimov', 'Gulnora Rahimova', 'Sardor Toshmatov'];
+    const namunalarTelefon = ['+998901234567', '+998907654321', '', '+998933334455'];
+
+    tumanlar.forEach((tuman, index) => {
+      const fioIndex = index % namunalarFio.length;
+      templateData.push([
+        tuman.soato,
+        `${namunalarFio[fioIndex]} (${tuman.nomi})`,
+        namunalarTelefon[fioIndex]
+      ]);
+    });
 
     const workbook = XLSX.utils.book_new();
     const worksheet = XLSX.utils.aoa_to_sheet(templateData);
 
     worksheet['!cols'] = [
       { wch: 12 }, // SOATO
-      { wch: 30 }, // FIO
+      { wch: 40 }, // FIO
       { wch: 18 }  // Telefon
     ];
 
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Ishtirokchilar');
 
+    // Ikkinchi sheet - Tumanlar ro'yxati (SOATO ma'lumotnomasi)
+    const tumanlarData = [
+      ['SOATO', 'Tuman nomi']
+    ];
+    tumanlar.forEach(tuman => {
+      tumanlarData.push([tuman.soato, tuman.nomi]);
+    });
+
+    const tumanlarSheet = XLSX.utils.aoa_to_sheet(tumanlarData);
+    tumanlarSheet['!cols'] = [
+      { wch: 12 }, // SOATO
+      { wch: 30 }  // Tuman nomi
+    ];
+    XLSX.utils.book_append_sheet(workbook, tumanlarSheet, 'SOATO kodlari');
+
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 
+    // Fayl nomiga viloyat nomini qo'shish
+    const safeViloyatName = viloyat.nomi.replace(/[^a-zA-Z0-9]/g, '_');
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=ishtirokchilar_viloyat_namuna.xlsx');
+    res.setHeader('Content-Disposition', `attachment; filename=ishtirokchilar_${safeViloyatName}_namuna.xlsx`);
 
     res.send(buffer);
   } catch (error) {

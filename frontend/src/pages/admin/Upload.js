@@ -120,8 +120,21 @@ const Upload = () => {
 
   const handleDownloadTemplate = async () => {
     try {
-      const endpoint = uploadMode === 'tuman' ? '/upload/template' : '/upload/template-by-viloyat';
-      const filename = uploadMode === 'tuman' ? 'ishtirokchilar_namuna.xlsx' : 'ishtirokchilar_viloyat_namuna.xlsx';
+      let endpoint;
+      let filename;
+
+      if (uploadMode === 'tuman') {
+        endpoint = '/upload/template';
+        filename = 'ishtirokchilar_namuna.xlsx';
+      } else {
+        // Viloyat rejimida viloyat tanlangan bo'lishi kerak
+        if (!selectedViloyat) {
+          alert('Avval viloyatni tanlang - namuna fayl shu viloyatning SOATO kodlari bilan yaratiladi');
+          return;
+        }
+        endpoint = `/upload/template-by-viloyat?viloyatId=${selectedViloyat}`;
+        filename = `ishtirokchilar_${getSelectedViloyatName()}_namuna.xlsx`;
+      }
 
       const response = await api.get(endpoint, {
         responseType: 'blob'
