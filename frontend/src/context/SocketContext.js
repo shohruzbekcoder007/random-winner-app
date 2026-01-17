@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { io } from 'socket.io-client';
 
 const SocketContext = createContext(null);
@@ -15,6 +15,7 @@ export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionError, setConnectionError] = useState(null);
+  const socketRef = useRef(null);
 
   // Socket ulanishini yaratish
   const connect = useCallback(() => {
@@ -26,17 +27,25 @@ export const SocketProvider = ({ children }) => {
     }
 
     // Agar allaqachon ulangan bo'lsa
-    if (socket?.connected) {
+    if (socketRef.current?.connected) {
+      console.log('Socket allaqachon ulangan');
+      return;
+    }
+
+    // Agar socket yaratilgan lekin ulanmagan bo'lsa, uni ulab ko'ramiz
+    if (socketRef.current) {
+      socketRef.current.connect();
       return;
     }
 
     const socketUrl = process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000';
+    console.log('Socket ulanmoqda:', socketUrl);
 
     const newSocket = io(socketUrl, {
       auth: { token },
       transports: ['websocket', 'polling'],
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 10,
       reconnectionDelay: 1000,
       timeout: 60000
     });
@@ -54,101 +63,120 @@ export const SocketProvider = ({ children }) => {
 
     newSocket.on('connect_error', (error) => {
       console.error('Socket ulanish xatosi:', error.message);
-      setConnectionError(error.message);
+      // Xato turini aniqlash
+      let errorMessage = error.message;
+      if (error.message.includes('xhr poll error') || error.message.includes('websocket error')) {
+        errorMessage = 'Server bilan bog\'lanib bo\'lmadi. Server ishlab turganini tekshiring.';
+      } else if (error.message.includes('Avtorizatsiya')) {
+        errorMessage = 'Avtorizatsiya xatosi. Qayta kiring.';
+      }
+      setConnectionError(errorMessage);
       setIsConnected(false);
     });
 
+    socketRef.current = newSocket;
     setSocket(newSocket);
-  }, [socket]);
+  }, []);
 
   // Socket ulanishini uzish
   const disconnect = useCallback(() => {
-    if (socket) {
-      socket.disconnect();
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+      socketRef.current = null;
       setSocket(null);
       setIsConnected(false);
     }
-  }, [socket]);
+  }, []);
+
+  // Avtomatik ulanish - token bor bo'lsa
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token && !socketRef.current) {
+      connect();
+    }
+
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    };
+  }, [connect]);
 
   // Token o'zgarganda qayta ulanish
   useEffect(() => {
     const handleStorageChange = () => {
       const token = localStorage.getItem('token');
-      if (token && !socket?.connected) {
+      if (token && !socketRef.current?.connected) {
         connect();
-      } else if (!token && socket) {
+      } else if (!token && socketRef.current) {
         disconnect();
       }
     };
 
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, [socket, connect, disconnect]);
-
-  // Component unmount bo'lganda
-  useEffect(() => {
-    return () => {
-      if (socket) {
-        socket.disconnect();
-      }
-    };
-  }, [socket]);
+  }, [connect, disconnect]);
 
   // Random tanlash funksiyasi
   const selectRandomWinner = useCallback((options = {}) => {
     return new Promise((resolve, reject) => {
-      if (!socket?.connected) {
+      const currentSocket = socketRef.current;
+      if (!currentSocket?.connected) {
         reject(new Error('Socket ulanmagan'));
         return;
       }
 
       // Event listenerni tozalash funksiyasi
       const cleanup = () => {
-        socket.off('random:completed');
-        socket.off('random:error');
+        currentSocket.off('random:completed');
+        currentSocket.off('random:error');
       };
 
       // Muvaffaqiyatli natija
-      socket.once('random:completed', (data) => {
+      currentSocket.once('random:completed', (data) => {
         cleanup();
         resolve(data);
       });
 
       // Xato
-      socket.once('random:error', (data) => {
+      currentSocket.once('random:error', (data) => {
         cleanup();
         reject(new Error(data.message));
       });
 
       // So'rov yuborish
-      socket.emit('random:select', {
+      currentSocket.emit('random:select', {
         excludePreviousWinners: options.excludePreviousWinners !== false
       });
     });
-  }, [socket]);
+  }, []);
 
   // Progress listener qo'shish
   const onProgress = useCallback((callback) => {
-    if (!socket) return () => {};
+    const currentSocket = socketRef.current;
+    if (!currentSocket) return () => {};
 
-    socket.on('random:progress', callback);
-    return () => socket.off('random:progress', callback);
+    currentSocket.on('random:progress', callback);
+    return () => currentSocket.off('random:progress', callback);
   }, [socket]);
 
   // Started listener qo'shish
   const onStarted = useCallback((callback) => {
-    if (!socket) return () => {};
+    const currentSocket = socketRef.current;
+    if (!currentSocket) return () => {};
 
-    socket.on('random:started', callback);
-    return () => socket.off('random:started', callback);
+    currentSocket.on('random:started', callback);
+    return () => currentSocket.off('random:started', callback);
   }, [socket]);
 
   // New winner listener (barcha foydalanuvchilar uchun)
   const onNewWinner = useCallback((callback) => {
-    if (!socket) return () => {};
+    const currentSocket = socketRef.current;
+    if (!currentSocket) return () => {};
 
-    socket.on('random:newWinner', callback);
-    return () => socket.off('random:newWinner', callback);
+    currentSocket.on('random:newWinner', callback);
+    return () => currentSocket.off('random:newWinner', callback);
   }, [socket]);
 
   const value = {

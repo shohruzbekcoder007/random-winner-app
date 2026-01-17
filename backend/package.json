@@ -4,8 +4,8 @@
   "description": "Random g'olib tanlash tizimi - Backend",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "start": "node --no-deprecation server.js",
+    "dev": "nodemon --no-deprecation server.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
