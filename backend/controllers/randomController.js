@@ -13,8 +13,8 @@ const selectRandomWinner = async (req, res) => {
     // Avvalgi g'oliblar ro'yxatini olish (agar excludePreviousWinners = true bo'lsa)
     let previousWinnerIds = [];
     if (excludePreviousWinners) {
-      const previousWinners = await Golib.find().select('ishtirokchi');
-      previousWinnerIds = previousWinners.map(g => g.ishtirokchi);
+      const previousWinners = await Golib.find().select('ishtirokchi._id');
+      previousWinnerIds = previousWinners.map(g => g.ishtirokchi._id);
     }
 
     // Ishtirokchi filter
@@ -151,11 +151,28 @@ const selectRandomWinner = async (req, res) => {
 
     const selectedIshtirokchi = randomIshtirokchi[0];
 
-    // 6-QADAM: G'oliblar jadvaliga yozish (faqat Golib jadvaliga)
+    // 6-QADAM: G'oliblar jadvaliga yozish (to'liq ma'lumotlar bilan)
+    // Viloyat va Tuman to'liq ma'lumotlarini olish
+    const viloyatData = await Viloyat.findById(selectedViloyatId);
+    const tumanData = await Tuman.findById(selectedTumanId);
+
     const golib = await Golib.create({
-      ishtirokchi: selectedIshtirokchi._id,
-      tuman: selectedTumanId,
-      viloyat: selectedViloyatId
+      ishtirokchi: {
+        _id: selectedIshtirokchi._id,
+        fio: selectedIshtirokchi.fio,
+        telefon: selectedIshtirokchi.telefon || null,
+        manzil: selectedIshtirokchi.manzil || null
+      },
+      tuman: {
+        _id: selectedTumanId,
+        nomi: selectedTumanNomi,
+        soato: tumanData?.soato || null
+      },
+      viloyat: {
+        _id: selectedViloyatId,
+        nomi: selectedViloyatNomi,
+        soato: viloyatData?.soato || null
+      }
     });
 
     // Natijani qaytarish
@@ -165,19 +182,9 @@ const selectRandomWinner = async (req, res) => {
       data: {
         golib: {
           _id: golib._id,
-          viloyat: {
-            _id: selectedViloyatId,
-            nomi: selectedViloyatNomi
-          },
-          tuman: {
-            _id: selectedTumanId,
-            nomi: selectedTumanNomi
-          },
-          ishtirokchi: {
-            _id: selectedIshtirokchi._id,
-            fio: selectedIshtirokchi.fio,
-            telefon: selectedIshtirokchi.telefon
-          },
+          viloyat: golib.viloyat,
+          tuman: golib.tuman,
+          ishtirokchi: golib.ishtirokchi,
           tanlanganSana: golib.tanlanganSana
         },
         stats: {
@@ -206,8 +213,8 @@ const getSelectionStats = async (req, res) => {
     const exclude = excludePreviousWinners === 'true' || excludePreviousWinners === true;
 
     // Avvalgi g'oliblar ro'yxati
-    const previousWinners = await Golib.find().select('ishtirokchi');
-    const previousWinnerIds = previousWinners.map(g => g.ishtirokchi);
+    const previousWinners = await Golib.find().select('ishtirokchi._id');
+    const previousWinnerIds = previousWinners.map(g => g.ishtirokchi._id);
 
     // Parallel so'rovlar
     const [

@@ -21,8 +21,8 @@ const selectRandomWinnerAsync = async (excludePreviousWinners = true, onProgress
 
     let previousWinnerIds = [];
     if (excludePreviousWinners) {
-      const previousWinners = await Golib.find().select('ishtirokchi');
-      previousWinnerIds = previousWinners.map(g => g.ishtirokchi);
+      const previousWinners = await Golib.find().select('ishtirokchi._id');
+      previousWinnerIds = previousWinners.map(g => g.ishtirokchi._id);
     }
 
     // 2-QADAM: Ishtirokchi filter
@@ -212,10 +212,27 @@ const selectRandomWinnerAsync = async (excludePreviousWinners = true, onProgress
       percent: 95
     });
 
+    // Viloyat va Tuman to'liq ma'lumotlarini olish
+    const viloyatData = await Viloyat.findById(selectedViloyatId);
+    const tumanData = await Tuman.findById(selectedTumanId);
+
     const golib = await Golib.create({
-      ishtirokchi: selectedIshtirokchi._id,
-      tuman: selectedTumanId,
-      viloyat: selectedViloyatId
+      ishtirokchi: {
+        _id: selectedIshtirokchi._id,
+        fio: selectedIshtirokchi.fio,
+        telefon: selectedIshtirokchi.telefon || null,
+        manzil: selectedIshtirokchi.manzil || null
+      },
+      tuman: {
+        _id: selectedTumanId,
+        nomi: selectedTumanNomi,
+        soato: tumanData?.soato || null
+      },
+      viloyat: {
+        _id: selectedViloyatId,
+        nomi: selectedViloyatNomi,
+        soato: viloyatData?.soato || null
+      }
     });
 
     onProgress({
@@ -225,26 +242,16 @@ const selectRandomWinnerAsync = async (excludePreviousWinners = true, onProgress
       percent: 100
     });
 
-    // Natijani qaytarish
+    // Natijani qaytarish - to'liq embedded ma'lumotlar
     return {
       success: true,
       message: 'G\'olib muvaffaqiyatli tanlandi!',
       data: {
         golib: {
           _id: golib._id,
-          viloyat: {
-            _id: selectedViloyatId,
-            nomi: selectedViloyatNomi
-          },
-          tuman: {
-            _id: selectedTumanId,
-            nomi: selectedTumanNomi
-          },
-          ishtirokchi: {
-            _id: selectedIshtirokchi._id,
-            fio: selectedIshtirokchi.fio,
-            telefon: selectedIshtirokchi.telefon
-          },
+          viloyat: golib.viloyat,
+          tuman: golib.tuman,
+          ishtirokchi: golib.ishtirokchi,
           tanlanganSana: golib.tanlanganSana
         },
         stats: {
