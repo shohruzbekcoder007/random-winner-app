@@ -222,7 +222,7 @@ const Ishtirokchilar = () => {
                     <th>FIO</th>
                     <th>Tuman</th>
                     <th>Viloyat</th>
-                    <th>Telefon</th>
+                    <th>Manzil</th>
                     <th>Holati</th>
                     <th>Amallar</th>
                   </tr>

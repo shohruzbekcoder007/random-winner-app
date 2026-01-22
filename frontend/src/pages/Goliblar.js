@@ -92,7 +92,7 @@ const Goliblar = () => {
                     <th>FIO</th>
                     <th>Viloyat</th>
                     <th>Tuman</th>
-                    <th>Telefon</th>
+                    <th>Manzil</th>
                     <th>Tanlangan sana</th>
                   </tr>
                 </thead>
