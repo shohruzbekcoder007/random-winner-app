@@ -38,20 +38,20 @@ const Navbar = () => {
               >
                 G'oliblar
               </Link>
+              <Link
+                to="/viloyatlar"
+                className={`nav-link ${isActive('/viloyatlar') ? 'active' : ''}`}
+              >
+                Viloyatlar
+              </Link>
+              <Link
+                to="/tumanlar"
+                className={`nav-link ${isActive('/tumanlar') ? 'active' : ''}`}
+              >
+                Tumanlar
+              </Link>
               {isAdmin() && (
                 <>
-                  <Link
-                    to="/admin/viloyatlar"
-                    className={`nav-link ${isActive('/admin/viloyatlar') ? 'active' : ''}`}
-                  >
-                    Viloyatlar
-                  </Link>
-                  <Link
-                    to="/admin/tumanlar"
-                    className={`nav-link ${isActive('/admin/tumanlar') ? 'active' : ''}`}
-                  >
-                    Tumanlar
-                  </Link>
                   <Link
                     to="/admin/ishtirokchilar"
                     className={`nav-link ${isActive('/admin/ishtirokchilar') ? 'active' : ''}`}

@@ -55,12 +55,10 @@ function App() {
                 </ProtectedRoute>
               }
             />
-
-            {/* Admin Routes */}
             <Route
-              path="/admin/viloyatlar"
+              path="/viloyatlar"
               element={
-                <ProtectedRoute adminOnly>
+                <ProtectedRoute>
                   <>
                     <Navbar />
                     <Viloyatlar />
@@ -69,9 +67,9 @@ function App() {
               }
             />
             <Route
-              path="/admin/tumanlar"
+              path="/tumanlar"
               element={
-                <ProtectedRoute adminOnly>
+                <ProtectedRoute>
                   <>
                     <Navbar />
                     <Tumanlar />
@@ -79,6 +77,8 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
+            {/* Admin Routes */}
             <Route
               path="/admin/ishtirokchilar"
               element={

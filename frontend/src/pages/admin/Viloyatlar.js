@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import './AdminPages.css';
 
 const Viloyatlar = () => {
+  const { isAdmin } = useAuth();
   const [viloyatlar, setViloyatlar] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -79,16 +81,18 @@ const Viloyatlar = () => {
       <div className="container">
         <div className="page-header">
           <h1>Viloyatlar</h1>
-          <button
-            onClick={() => {
-              setEditingViloyat(null);
-              setFormData({ nomi: '', soato: '' });
-              setShowModal(true);
-            }}
-            className="btn btn-primary"
-          >
-            + Yangi viloyat
-          </button>
+          {isAdmin() && (
+            <button
+              onClick={() => {
+                setEditingViloyat(null);
+                setFormData({ nomi: '', soato: '' });
+                setShowModal(true);
+              }}
+              className="btn btn-primary"
+            >
+              + Yangi viloyat
+            </button>
+          )}
         </div>
 
         <div className="card">
@@ -124,29 +128,31 @@ const Viloyatlar = () => {
                           {viloyat.isActive ? 'Faol' : 'Nofaol'}
                         </span>
                       </td>
-                      <td className="actions-cell">
-                        <button
-                          onClick={() => handleToggleActive(viloyat)}
-                          className="btn-icon"
-                          title={viloyat.isActive ? 'O\'chirish' : 'Yoqish'}
-                        >
-                          {viloyat.isActive ? '🔴' : '🟢'}
-                        </button>
-                        <button
-                          onClick={() => handleEdit(viloyat)}
-                          className="btn-icon"
-                          title="Tahrirlash"
-                        >
-                          ✏️
-                        </button>
-                        <button
-                          onClick={() => handleDelete(viloyat._id)}
-                          className="btn-icon"
-                          title="O'chirish"
-                        >
-                          🗑️
-                        </button>
-                      </td>
+                      {isAdmin() && (
+                        <td className="actions-cell">
+                          <button
+                            onClick={() => handleToggleActive(viloyat)}
+                            className="btn-icon"
+                            title={viloyat.isActive ? 'O\'chirish' : 'Yoqish'}
+                          >
+                            {viloyat.isActive ? '🔴' : '🟢'}
+                          </button>
+                          <button
+                            onClick={() => handleEdit(viloyat)}
+                            className="btn-icon"
+                            title="Tahrirlash"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            onClick={() => handleDelete(viloyat._id)}
+                            className="btn-icon"
+                            title="O'chirish"
+                          >
+                            🗑️
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -155,8 +161,8 @@ const Viloyatlar = () => {
           )}
         </div>
 
-        {/* Modal */}
-        {showModal && (
+        {/* Modal - faqat admin uchun */}
+        {isAdmin() && showModal && (
           <div className="modal-overlay" onClick={() => setShowModal(false)}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">

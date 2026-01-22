@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import './AdminPages.css';
 
 const Tumanlar = () => {
+  const { isAdmin } = useAuth();
   const [tumanlar, setTumanlar] = useState([]);
   const [viloyatlar, setViloyatlar] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -89,16 +91,18 @@ const Tumanlar = () => {
       <div className="container">
         <div className="page-header">
           <h1>Tumanlar</h1>
-          <button
-            onClick={() => {
-              setEditingTuman(null);
-              setFormData({ nomi: '', soato: '', viloyat: viloyatlar[0]?._id || '' });
-              setShowModal(true);
-            }}
-            className="btn btn-primary"
-          >
-            + Yangi tuman
-          </button>
+          {isAdmin() && (
+            <button
+              onClick={() => {
+                setEditingTuman(null);
+                setFormData({ nomi: '', soato: '', viloyat: viloyatlar[0]?._id || '' });
+                setShowModal(true);
+              }}
+              className="btn btn-primary"
+            >
+              + Yangi tuman
+            </button>
+          )}
         </div>
 
         {/* Filter */}
@@ -150,29 +154,31 @@ const Tumanlar = () => {
                           {tuman.isActive ? 'Ishtirok etadi' : 'Ishtirok etmaydi'}
                         </span>
                       </td>
-                      <td className="actions-cell">
-                        <button
-                          onClick={() => handleToggleActive(tuman)}
-                          className="btn-icon"
-                          title={tuman.isActive ? 'Ishtirokdan chiqarish' : 'Ishtirok ettirish'}
-                        >
-                          {tuman.isActive ? '🔴' : '🟢'}
-                        </button>
-                        <button
-                          onClick={() => handleEdit(tuman)}
-                          className="btn-icon"
-                          title="Tahrirlash"
-                        >
-                          ✏️
-                        </button>
-                        <button
-                          onClick={() => handleDelete(tuman._id)}
-                          className="btn-icon"
-                          title="O'chirish"
-                        >
-                          🗑️
-                        </button>
-                      </td>
+                      {isAdmin() && (
+                        <td className="actions-cell">
+                          <button
+                            onClick={() => handleToggleActive(tuman)}
+                            className="btn-icon"
+                            title={tuman.isActive ? 'Ishtirokdan chiqarish' : 'Ishtirok ettirish'}
+                          >
+                            {tuman.isActive ? '🔴' : '🟢'}
+                          </button>
+                          <button
+                            onClick={() => handleEdit(tuman)}
+                            className="btn-icon"
+                            title="Tahrirlash"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            onClick={() => handleDelete(tuman._id)}
+                            className="btn-icon"
+                            title="O'chirish"
+                          >
+                            🗑️
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -181,8 +187,8 @@ const Tumanlar = () => {
           )}
         </div>
 
-        {/* Modal */}
-        {showModal && (
+        {/* Modal - faqat admin uchun */}
+        {isAdmin() && showModal && (
           <div className="modal-overlay" onClick={() => setShowModal(false)}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
