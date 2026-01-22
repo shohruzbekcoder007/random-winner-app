@@ -128,31 +128,33 @@ const Viloyatlar = () => {
                           {viloyat.isActive ? 'Faol' : 'Nofaol'}
                         </span>
                       </td>
-                      {isAdmin() && (
-                        <td className="actions-cell">
-                          <button
-                            onClick={() => handleToggleActive(viloyat)}
-                            className="btn-icon"
-                            title={viloyat.isActive ? 'O\'chirish' : 'Yoqish'}
-                          >
-                            {viloyat.isActive ? '🔴' : '🟢'}
-                          </button>
-                          <button
-                            onClick={() => handleEdit(viloyat)}
-                            className="btn-icon"
-                            title="Tahrirlash"
-                          >
-                            ✏️
-                          </button>
-                          <button
-                            onClick={() => handleDelete(viloyat._id)}
-                            className="btn-icon"
-                            title="O'chirish"
-                          >
-                            🗑️
-                          </button>
-                        </td>
-                      )}
+                      <td className="actions-cell">
+                        <button
+                          onClick={() => handleToggleActive(viloyat)}
+                          className="btn-icon"
+                          title={viloyat.isActive ? 'O\'chirish' : 'Yoqish'}
+                        >
+                          {viloyat.isActive ? '🔴' : '🟢'}
+                        </button>
+                        {isAdmin() && (
+                          <>
+                            <button
+                              onClick={() => handleEdit(viloyat)}
+                              className="btn-icon"
+                              title="Tahrirlash"
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              onClick={() => handleDelete(viloyat._id)}
+                              className="btn-icon"
+                              title="O'chirish"
+                            >
+                              🗑️
+                            </button>
+                          </>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

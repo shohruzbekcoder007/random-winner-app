@@ -154,31 +154,33 @@ const Tumanlar = () => {
                           {tuman.isActive ? 'Ishtirok etadi' : 'Ishtirok etmaydi'}
                         </span>
                       </td>
-                      {isAdmin() && (
-                        <td className="actions-cell">
-                          <button
-                            onClick={() => handleToggleActive(tuman)}
-                            className="btn-icon"
-                            title={tuman.isActive ? 'Ishtirokdan chiqarish' : 'Ishtirok ettirish'}
-                          >
-                            {tuman.isActive ? '🔴' : '🟢'}
-                          </button>
-                          <button
-                            onClick={() => handleEdit(tuman)}
-                            className="btn-icon"
-                            title="Tahrirlash"
-                          >
-                            ✏️
-                          </button>
-                          <button
-                            onClick={() => handleDelete(tuman._id)}
-                            className="btn-icon"
-                            title="O'chirish"
-                          >
-                            🗑️
-                          </button>
-                        </td>
-                      )}
+                      <td className="actions-cell">
+                        <button
+                          onClick={() => handleToggleActive(tuman)}
+                          className="btn-icon"
+                          title={tuman.isActive ? 'Ishtirokdan chiqarish' : 'Ishtirok ettirish'}
+                        >
+                          {tuman.isActive ? '🔴' : '🟢'}
+                        </button>
+                        {isAdmin() && (
+                          <>
+                            <button
+                              onClick={() => handleEdit(tuman)}
+                              className="btn-icon"
+                              title="Tahrirlash"
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              onClick={() => handleDelete(tuman._id)}
+                              className="btn-icon"
+                              title="O'chirish"
+                            >
+                              🗑️
+                            </button>
+                          </>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
