@@ -199,29 +199,55 @@ const Home = () => {
   }, [fetchData]);
 
   const handleSelectWinner = async () => {
-    if (!isConnected) {
-      showError({ errorMessage: 'Server bilan aloqa yo\'q. Sahifani yangilang.' });
-      return;
-    }
-
     setSelecting(true);
     setSelectedWinner(null);
     setProgress(null);
     setShowConfetti(false);
 
     try {
-      const result = await selectRandomWinner({ excludePreviousWinners: excludePrevious });
+      let result;
+
+      // Socket ulanmagan bo'lsa - oddiy API call
+      if (!isConnected) {
+        // Oddiy loading holatini ko'rsatish
+        setProgress({
+          step: 0,
+          totalSteps: 1,
+          message: 'G\'olib tanlanmoqda, iltimos kuting...',
+          percent: 50
+        });
+
+        // API call va minimum 5 sekund kutish parallel bajariladi
+        const startTime = Date.now();
+        const response = await api.post('/random/select', {
+          excludePreviousWinners: excludePrevious
+        });
+
+        // Kamida 5 sekund bo'lishi uchun qolgan vaqtni kutish
+        const elapsed = Date.now() - startTime;
+        const remainingTime = Math.max(0, 5000 - elapsed);
+        if (remainingTime > 0) {
+          await new Promise(resolve => setTimeout(resolve, remainingTime));
+        }
+
+        result = { success: true, data: response.data.data };
+      } else {
+        // Socket orqali real-time
+        result = await selectRandomWinner({ excludePreviousWinners: excludePrevious });
+      }
 
       if (result.success) {
-        // Oxirgi slot ni ham to'ldirish
-        setSlotState(prev => ({
-          ...prev,
-          ishtirokchi: {
-            spinning: false,
-            landed: true,
-            value: result.data.golib.ishtirokchi.fio
-          }
-        }));
+        // Oxirgi slot ni ham to'ldirish (faqat socket bilan)
+        if (isConnected) {
+          setSlotState(prev => ({
+            ...prev,
+            ishtirokchi: {
+              spinning: false,
+              landed: true,
+              value: result.data.golib.ishtirokchi.fio
+            }
+          }));
+        }
 
         // Biroz kutib keyin natijani ko'rsatish
         setTimeout(() => {
@@ -327,66 +353,78 @@ const Home = () => {
         {/* Random tanlash */}
         <div className="selection-section">
           <div className={`selection-card ${selecting ? 'animating' : ''}`}>
-            {/* Progress ko'rsatish - Slot Machine Style */}
+            {/* Progress ko'rsatish */}
             {selecting && progress && (
               <div className="selection-progress">
-                <div className="slot-machine">
-                  <div className="slot-header">
-                    <span className="slot-header-icon">🎰</span>
-                    <span>G'olib tanlanmoqda</span>
-                    <span className="slot-header-icon">🎰</span>
-                  </div>
+                {isConnected ? (
+                  // Socket bilan - Slot Machine Style
+                  <div className="slot-machine">
+                    <div className="slot-header">
+                      <span className="slot-header-icon">🎰</span>
+                      <span>G'olib tanlanmoqda</span>
+                      <span className="slot-header-icon">🎰</span>
+                    </div>
 
-                  {/* Slot Reels */}
-                  <div className="slot-reels">
-                    <SlotReel
-                      label="Viloyat"
-                      icon="🏛️"
-                      value={slotState.viloyat.value}
-                      isSpinning={slotState.viloyat.spinning}
-                      isLanded={slotState.viloyat.landed}
-                    />
-                    <SlotReel
-                      label="Tuman"
-                      icon="📍"
-                      value={slotState.tuman.value}
-                      isSpinning={slotState.tuman.spinning}
-                      isLanded={slotState.tuman.landed}
-                    />
-                    <SlotReel
-                      label="Ishtirokchi"
-                      icon="👤"
-                      value={slotState.ishtirokchi.value}
-                      isSpinning={slotState.ishtirokchi.spinning}
-                      isLanded={slotState.ishtirokchi.landed}
-                    />
-                  </div>
-
-                  {/* Progress Ring */}
-                  <ProgressRing
-                    percent={progress.percent}
-                    step={progress.step}
-                    totalSteps={progress.totalSteps}
-                  />
-
-                  {/* Step Indicator */}
-                  <div className="step-indicator">
-                    {[1, 2, 3, 4, 5, 6].map((step) => (
-                      <div
-                        key={step}
-                        className={`step-dot ${
-                          progress.step === step ? 'active' :
-                          progress.step > step ? 'completed' : ''
-                        }`}
+                    {/* Slot Reels */}
+                    <div className="slot-reels">
+                      <SlotReel
+                        label="Viloyat"
+                        icon="🏛️"
+                        value={slotState.viloyat.value}
+                        isSpinning={slotState.viloyat.spinning}
+                        isLanded={slotState.viloyat.landed}
                       />
-                    ))}
-                  </div>
+                      <SlotReel
+                        label="Tuman"
+                        icon="📍"
+                        value={slotState.tuman.value}
+                        isSpinning={slotState.tuman.spinning}
+                        isLanded={slotState.tuman.landed}
+                      />
+                      <SlotReel
+                        label="Ishtirokchi"
+                        icon="👤"
+                        value={slotState.ishtirokchi.value}
+                        isSpinning={slotState.ishtirokchi.spinning}
+                        isLanded={slotState.ishtirokchi.landed}
+                      />
+                    </div>
 
-                  {/* Message */}
-                  <div className="selection-message">
-                    {progress.message}
+                    {/* Progress Ring */}
+                    <ProgressRing
+                      percent={progress.percent}
+                      step={progress.step}
+                      totalSteps={progress.totalSteps}
+                    />
+
+                    {/* Step Indicator */}
+                    <div className="step-indicator">
+                      {[1, 2, 3, 4, 5, 6].map((step) => (
+                        <div
+                          key={step}
+                          className={`step-dot ${
+                            progress.step === step ? 'active' :
+                            progress.step > step ? 'completed' : ''
+                          }`}
+                        />
+                      ))}
+                    </div>
+
+                    {/* Message */}
+                    <div className="selection-message">
+                      {progress.message}
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  // Socket yo'q - Oddiy Loading
+                  <div className="simple-loading">
+                    <div className="loading-spinner-large"></div>
+                    <div className="loading-text">{progress.message}</div>
+                    <div className="loading-subtext">
+                      Real-time progress socket ulanmagani uchun ko'rsatilmayapti
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -442,8 +480,9 @@ const Home = () => {
 
               <button
                 onClick={handleSelectWinner}
-                disabled={selecting || stats?.tanlanishiMumkin === 0 || !isConnected}
+                disabled={selecting || stats?.tanlanishiMumkin === 0}
                 className={`btn-select ${selecting ? 'selecting' : ''}`}
+                title={!isConnected ? 'Socket ulanmagan. Oddiy API dan foydalaniladi.' : ''}
               >
                 {selecting ? (
                   <>

@@ -1018,3 +1018,42 @@
     height: 8px;
   }
 }
+
+/* Simple Loading (socket yo'q bo'lganda) */
+.simple-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 60px 32px;
+  min-height: 300px;
+}
+
+.loading-spinner-large {
+  width: 80px;
+  height: 80px;
+  border: 6px solid #e0e0e0;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-text {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--gray-700);
+  text-align: center;
+}
+
+.loading-subtext {
+  font-size: 14px;
+  color: var(--gray-500);
+  text-align: center;
+  max-width: 400px;
+  line-height: 1.5;
+}
