@@ -504,7 +504,7 @@ const Home = () => {
         {isAdmin() && (
           <div className="admin-actions">
             <h3>Admin amallar</h3>
-            <button onClick={handleResetWinners} className="btn btn-danger">
+            <button onClick={handleResetWinners} className="btn btn-danger" disabled>
               🔄 Barcha g'oliblar statusini bekor qilish
             </button>
           </div>

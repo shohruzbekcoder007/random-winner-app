@@ -258,11 +258,63 @@ const toggleActive = async (req, res) => {
   }
 };
 
+// @desc    Filterlangan tumanlarni faol/nofaol qilish
+// @route   PATCH /api/tuman/bulk-toggle
+// @access  Private
+const bulkToggleActive = async (req, res) => {
+  try {
+    const { viloyat, isActive, currentStatus } = req.body;
+
+    if (typeof isActive !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        message: 'isActive qiymati kiritilishi shart (true/false)'
+      });
+    }
+
+    // Query yasash
+    let query = {};
+
+    // Viloyat filtri (ixtiyoriy)
+    if (viloyat) {
+      const viloyatExists = await Viloyat.findById(viloyat);
+      if (!viloyatExists) {
+        return res.status(404).json({
+          success: false,
+          message: 'Viloyat topilmadi'
+        });
+      }
+      query.viloyat = viloyat;
+    }
+
+    // Joriy holat filtri (ixtiyoriy)
+    if (currentStatus === 'true' || currentStatus === 'false') {
+      query.isActive = currentStatus === 'true';
+    }
+
+    // Tumanlarni yangilash
+    const result = await Tuman.updateMany(query, { isActive: isActive });
+
+    res.json({
+      success: true,
+      message: `${result.modifiedCount} ta tuman ${isActive ? 'faollashtirildi' : 'nofaol qilindi'}`,
+      modifiedCount: result.modifiedCount
+    });
+  } catch (error) {
+    console.error('Bulk toggle active xatosi:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server xatosi'
+    });
+  }
+};
+
 module.exports = {
   getTumanlar,
   getTuman,
   createTuman,
   updateTuman,
   deleteTuman,
-  toggleActive
+  toggleActive,
+  bulkToggleActive
 };

@@ -6,7 +6,8 @@ const {
   createTuman,
   updateTuman,
   deleteTuman,
-  toggleActive
+  toggleActive,
+  bulkToggleActive
 } = require('../controllers/tumanController');
 const { protect, adminOnly } = require('../middleware/authMiddleware');
 
@@ -17,11 +18,15 @@ router.route('/')
   .get(getTumanlar)
   .post(adminOnly, createTuman);
 
+// Bulk toggle - oddiy userlar ham foydalana oladi
+router.patch('/bulk-toggle', bulkToggleActive);
+
 router.route('/:id')
   .get(getTuman)
   .put(adminOnly, updateTuman)
   .delete(adminOnly, deleteTuman);
 
-router.patch('/:id/toggle-active', adminOnly, toggleActive);
+// Toggle active - oddiy userlar ham foydalana oladi
+router.patch('/:id/toggle-active', toggleActive);
 
 module.exports = router;

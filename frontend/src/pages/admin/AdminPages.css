@@ -27,6 +27,18 @@
   max-width: 200px;
 }
 
+/* Bulk Actions */
+.bulk-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
 /* Table Styles */
 .name-cell {
   font-weight: 500;

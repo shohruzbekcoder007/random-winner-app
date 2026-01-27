@@ -8,19 +8,27 @@ const Tumanlar = () => {
   const [tumanlar, setTumanlar] = useState([]);
   const [viloyatlar, setViloyatlar] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [bulkLoading, setBulkLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingTuman, setEditingTuman] = useState(null);
   const [formData, setFormData] = useState({ nomi: '', soato: '', viloyat: '' });
   const [filterViloyat, setFilterViloyat] = useState('');
+  const [filterStatus, setFilterStatus] = useState(''); // '', 'true', 'false'
 
   useEffect(() => {
     fetchData();
-  }, [filterViloyat]);
+  }, [filterViloyat, filterStatus]);
 
   const fetchData = async () => {
     try {
+      // Query parametrlarini yasash
+      const params = new URLSearchParams();
+      if (filterViloyat) params.append('viloyat', filterViloyat);
+      if (filterStatus) params.append('isActive', filterStatus);
+      const queryString = params.toString();
+
       const [tumanlarRes, viloyatlarRes] = await Promise.all([
-        api.get(`/tuman${filterViloyat ? `?viloyat=${filterViloyat}` : ''}`),
+        api.get(`/tuman${queryString ? `?${queryString}` : ''}`),
         api.get('/viloyat')
       ]);
       setTumanlar(tumanlarRes.data.data);
@@ -78,6 +86,38 @@ const Tumanlar = () => {
     }
   };
 
+  // Filterlangan tumanlarni faol/nofaol qilish
+  const handleBulkToggle = async (isActive) => {
+    const viloyatNomi = filterViloyat
+      ? viloyatlar.find(v => v._id === filterViloyat)?.nomi
+      : 'Barcha viloyatlar';
+    const statusText = filterStatus === 'true' ? 'faol' : filterStatus === 'false' ? 'nofaol' : 'barcha';
+    const action = isActive ? 'faollashtirmoqchi' : 'nofaol qilmoqchi';
+
+    const confirmMessage = filterViloyat
+      ? `${viloyatNomi} viloyatidagi ${statusText} tumanlarni ${action}misiz?`
+      : `${statusText.charAt(0).toUpperCase() + statusText.slice(1)} tumanlarni ${action}misiz? (${tumanlar.length} ta)`;
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    setBulkLoading(true);
+    try {
+      const body = { isActive };
+      if (filterViloyat) body.viloyat = filterViloyat;
+      if (filterStatus) body.currentStatus = filterStatus;
+
+      const response = await api.patch('/tuman/bulk-toggle', body);
+      alert(response.data.message);
+      fetchData();
+    } catch (error) {
+      alert(error.response?.data?.message || 'Xato yuz berdi');
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="loading-overlay">
@@ -117,6 +157,38 @@ const Tumanlar = () => {
               <option key={v._id} value={v._id}>{v.nomi}</option>
             ))}
           </select>
+
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="form-input filter-select"
+          >
+            <option value="">Barcha holatlar</option>
+            <option value="true">Faol (Ishtirok etadi)</option>
+            <option value="false">Nofaol (Ishtirok etmaydi)</option>
+          </select>
+
+          {/* Bulk actions - filterlangan tumanlar uchun */}
+          {tumanlar.length > 0 && (
+            <div className="bulk-actions">
+              <button
+                onClick={() => handleBulkToggle(true)}
+                disabled={bulkLoading}
+                className="btn btn-success btn-sm"
+                title="Filterlangan tumanlarni faollashtirish"
+              >
+                {bulkLoading ? '...' : '🟢 Barchasini faol'}
+              </button>
+              <button
+                onClick={() => handleBulkToggle(false)}
+                disabled={bulkLoading}
+                className="btn btn-danger btn-sm"
+                title="Filterlangan tumanlarni nofaol qilish"
+              >
+                {bulkLoading ? '...' : '🔴 Barchasini nofaol'}
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="card">
