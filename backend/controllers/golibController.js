@@ -1,16 +1,45 @@
 const Golib = require('../models/Golib');
+const XLSX = require('xlsx');
+
+// Filter query yasash uchun yordamchi funksiya
+const buildFilterQuery = (params) => {
+  const { viloyat, tuman, search, startDate, endDate } = params;
+  let query = {};
+
+  // Viloyat bo'yicha filter
+  if (viloyat) query['viloyat._id'] = viloyat;
+
+  // Tuman bo'yicha filter
+  if (tuman) query['tuman._id'] = tuman;
+
+  // FIO bo'yicha qidirish
+  if (search) {
+    query['ishtirokchi.fio'] = { $regex: search, $options: 'i' };
+  }
+
+  // Sana oralig'i bo'yicha filter
+  if (startDate || endDate) {
+    query.tanlanganSana = {};
+    if (startDate) {
+      query.tanlanganSana.$gte = new Date(startDate);
+    }
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      query.tanlanganSana.$lte = end;
+    }
+  }
+
+  return query;
+};
 
 // @desc    Barcha g'oliblarni olish
 // @route   GET /api/golib
 // @access  Private
 const getGoliblar = async (req, res) => {
   try {
-    const { page = 1, limit = 20, viloyat, tuman } = req.query;
-
-    let query = {};
-    // Embedded document bo'yicha qidirish
-    if (viloyat) query['viloyat._id'] = viloyat;
-    if (tuman) query['tuman._id'] = tuman;
+    const { page = 1, limit = 20 } = req.query;
+    const query = buildFilterQuery(req.query);
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
@@ -193,10 +222,67 @@ const getStats = async (req, res) => {
   }
 };
 
+// @desc    G'oliblarni XLSX formatda yuklash
+// @route   GET /api/golib/export
+// @access  Private
+const exportGoliblar = async (req, res) => {
+  try {
+    const query = buildFilterQuery(req.query);
+
+    // Barcha filterga mos goliblarni olish
+    const goliblar = await Golib.find(query)
+      .sort({ tanlanganSana: -1 });
+
+    // Excel uchun ma'lumotlarni tayyorlash
+    const data = goliblar.map((golib, index) => ({
+      '№': index + 1,
+      'FIO': golib.ishtirokchi?.fio || '',
+      'Viloyat': golib.viloyat?.nomi || '',
+      'Tuman': golib.tuman?.nomi || '',
+      'Manzil': golib.ishtirokchi?.telefon || '',
+      'Tanlangan sana': golib.tanlanganSana
+        ? new Date(golib.tanlanganSana).toLocaleString('uz-UZ')
+        : ''
+    }));
+
+    // Workbook yaratish
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Goliblar');
+
+    // Ustun kengliklari
+    worksheet['!cols'] = [
+      { wch: 5 },   // №
+      { wch: 35 },  // FIO
+      { wch: 20 },  // Viloyat
+      { wch: 25 },  // Tuman
+      { wch: 50 },  // Manzil
+      { wch: 20 }   // Sana
+    ];
+
+    // Buffer yaratish
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    // Response headers
+    const filename = `goliblar_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+    res.send(buffer);
+  } catch (error) {
+    console.error('Export goliblar xatosi:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server xatosi'
+    });
+  }
+};
+
 module.exports = {
   getGoliblar,
   getLatestGolib,
   getGolib,
   deleteGolib,
-  getStats
+  getStats,
+  exportGoliblar
 };

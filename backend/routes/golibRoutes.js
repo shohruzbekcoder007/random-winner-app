@@ -5,7 +5,8 @@ const {
   getLatestGolib,
   getGolib,
   deleteGolib,
-  getStats
+  getStats,
+  exportGoliblar
 } = require('../controllers/golibController');
 const { protect, adminOnly } = require('../middleware/authMiddleware');
 
@@ -15,6 +16,7 @@ router.use(protect);
 router.get('/', getGoliblar);
 router.get('/latest', getLatestGolib);
 router.get('/stats', getStats);
+router.get('/export', exportGoliblar);
 router.get('/:id', getGolib);
 router.delete('/:id', adminOnly, deleteGolib);
 
