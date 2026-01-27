@@ -60,8 +60,18 @@ const Viloyatlar = () => {
   };
 
   const handleToggleActive = async (viloyat) => {
+    // Ogohlantirish - tumanlar ham o'zgaradi
+    if (viloyat.tumanlarSoni > 0) {
+      const action = viloyat.isActive ? 'nofaol' : 'faol';
+      if (!window.confirm(`${viloyat.nomi} viloyatini ${action} qilsangiz, uning ${viloyat.tumanlarSoni} ta tumani ham ${action} bo'ladi. Davom etasizmi?`)) {
+        return;
+      }
+    }
     try {
-      await api.put(`/viloyat/${viloyat._id}`, { isActive: !viloyat.isActive });
+      const response = await api.patch(`/viloyat/${viloyat._id}/toggle-active`);
+      if (response.data.message) {
+        alert(response.data.message);
+      }
       fetchViloyatlar();
     } catch (error) {
       alert(error.response?.data?.message || 'Xato yuz berdi');

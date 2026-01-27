@@ -159,6 +159,46 @@ const updateViloyat = async (req, res) => {
   }
 };
 
+// @desc    Viloyatning faolligini o'zgartirish
+// @route   PATCH /api/viloyat/:id/toggle-active
+// @access  Private
+const toggleActive = async (req, res) => {
+  try {
+    const viloyat = await Viloyat.findById(req.params.id);
+
+    if (!viloyat) {
+      return res.status(404).json({
+        success: false,
+        message: 'Viloyat topilmadi'
+      });
+    }
+
+    viloyat.isActive = !viloyat.isActive;
+    await viloyat.save();
+
+    // Viloyat bilan birga barcha tumanlarni ham faol/nofaol qilish
+    const result = await Tuman.updateMany(
+      { viloyat: viloyat._id },
+      { isActive: viloyat.isActive }
+    );
+    const tumanlarUpdated = result.modifiedCount;
+
+    res.json({
+      success: true,
+      data: viloyat,
+      message: viloyat.isActive
+        ? `Viloyat va uning ${tumanlarUpdated} ta tumani faollashtirildi`
+        : `Viloyat va uning ${tumanlarUpdated} ta tumani nofaol qilindi`
+    });
+  } catch (error) {
+    console.error('Toggle active xatosi:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server xatosi'
+    });
+  }
+};
+
 // @desc    Viloyatni o'chirish
 // @route   DELETE /api/viloyat/:id
 // @access  Private/Admin
@@ -202,5 +242,6 @@ module.exports = {
   getViloyat,
   createViloyat,
   updateViloyat,
-  deleteViloyat
+  deleteViloyat,
+  toggleActive
 };
